@@ -17,7 +17,8 @@ Documentation
 =============
 
 The documentation is under `Documentation/ <Documentation/index.rst>`_ and
-is built with ``make -C Documentation html``.
+is built with ``make -C Documentation html``. A patch is contributed as
+described in `CONTRIBUTING.rst <CONTRIBUTING.rst>`_.
 
 Licensing
 =========
