@@ -13,6 +13,8 @@ its own path, set out in :doc:`security-bugs`.
   carries.
 * :doc:`branching` -- ``eola-next``, ``main`` and release tags.
 * :doc:`security-bugs` -- private reporting and disclosure.
+* :doc:`code-of-conduct` -- conduct in issues, pull requests, reviews and
+  security reports.
 
 .. toctree::
    :hidden:
@@ -20,3 +22,4 @@ its own path, set out in :doc:`security-bugs`.
    contributing
    branching
    security-bugs
+   code-of-conduct
