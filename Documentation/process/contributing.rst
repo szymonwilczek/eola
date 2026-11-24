@@ -63,6 +63,13 @@ licenses.
 Every commit is also signed with GPG or SSH (``git commit -S``, or
 ``commit.gpgsign`` set to ``true``), so that GitHub marks it verified.
 
+Reporting issues
+================
+
+A defect or a proposed change is reported as a GitHub issue. A suspected
+vulnerability never goes into a public issue; :doc:`security-bugs` describes
+the private channel.
+
 Pull requests
 =============
 
