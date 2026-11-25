@@ -71,7 +71,7 @@ Published documentation
 
 ``.github/workflows/documentation-deploy.yml`` builds the documentation of
 both branches on every push to either and publishes them as one GitHub Pages
-site at ``https://szymonwilczek.github.io/eola/``:
+site at ``https://eola.szymon-wilczek.me/``:
 
 stable
    Built from ``main``, at the site root. Until ``main`` carries a

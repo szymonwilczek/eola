@@ -44,7 +44,7 @@ templates_path = ["_templates"]
 
 # Both channels name the stable root as canonical, so a search engine
 # sends readers to the documentation of the released code.
-site_url = "https://szymonwilczek.github.io/eola/"
+site_url = "https://eola.szymon-wilczek.me/"
 html_baseurl = site_url
 html_context = {
     "eola_channel": channel,
