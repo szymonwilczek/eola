@@ -17,9 +17,10 @@ Documentation
 =============
 
 The documentation is under `Documentation/ <Documentation/index.rst>`_ and
-is built with ``make -C Documentation html``. A patch is contributed as
-described in `CONTRIBUTING.rst <CONTRIBUTING.rst>`_, and a vulnerability is
-reported as described in `SECURITY.md <SECURITY.md>`_.
+is built with ``make -C Documentation html``. The specification drafts are
+under `spec/ <spec/>`_ and are built with ``make -C spec``. A patch is
+contributed as described in `CONTRIBUTING.rst <CONTRIBUTING.rst>`_, and a
+vulnerability is reported as described in `SECURITY.md <SECURITY.md>`_.
 
 Licensing
 =========

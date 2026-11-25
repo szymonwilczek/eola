@@ -9,6 +9,8 @@ name: Deploy documentation
 #
 #   stable       built from main, served at the site root
 #   development  built from eola-next, served under /eola-next/
+#
+# Each channel carries the specification drafts of its branch under spec/.
 
 on:
   push:
@@ -46,14 +48,18 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install the documentation toolchain
-        run: pip install -r development/Documentation/requirements.txt
+      - name: Install the documentation and specification toolchains
+        run: |
+          pip install -r development/Documentation/requirements.txt
+          pip install -r development/spec/requirements.txt
+          sudo gem install --no-document kramdown-rfc -v 1.7.43
 
       - name: Build the development channel
         run: |
           EOLA_DOCS_CHANNEL=dev \
           EOLA_DOCS_VERSION="eola-next ($(git -C development rev-parse --short HEAD))" \
             make -C development/Documentation html
+          make -C development/spec
 
       # main carries released code only and has no documentation tree until
       # the first release; the site root then links to the development
@@ -65,11 +71,20 @@ jobs:
             EOLA_DOCS_VERSION="main ($(git -C stable rev-parse --short HEAD))" \
               make -C stable/Documentation html
           fi
+          if [ -f stable/spec/Makefile ]; then
+            make -C stable/spec
+          fi
 
       - name: Assemble the site
         run: |
+          publish_spec() {
+            mkdir -p "$2/spec/owfa"
+            cp "$1"/spec/build/*.html "$1"/spec/build/*.txt "$2/spec/"
+            cp "$1"/spec/owfa/*.txt "$2/spec/owfa/"
+          }
           mkdir -p site/eola-next
           cp -r development/Documentation/_build/html/. site/eola-next/
+          publish_spec development site/eola-next
           if [ -d stable/Documentation/_build/html ]; then
             cp -r stable/Documentation/_build/html/. site/
           else
@@ -87,6 +102,9 @@ jobs:
           </body>
           </html>
           HTML
+          fi
+          if [ -d stable/spec/build ]; then
+            publish_spec stable site
           fi
 
       - name: Upload the Pages artifact

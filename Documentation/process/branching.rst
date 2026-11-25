@@ -41,5 +41,9 @@ development
    Built from ``eola-next``, under ``/eola-next/``. Every page carries a
    banner naming the channel and is kept out of search results.
 
+Each channel carries the specification drafts of its branch under
+``spec/``, rendered as HTML and plain text, and their patent declarations
+under ``spec/owfa/``.
+
 The version label of each channel is the branch name and the short hash of
 the commit it was built from. A local build is labelled ``local``.
