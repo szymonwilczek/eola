@@ -16,13 +16,12 @@ players carry between them.
 Documentation
 =============
 
-The documentation is under `Documentation/ <Documentation/index.rst>`_ and
-is built with ``make -C Documentation html``. The specification drafts are
-under `spec/ <spec/>`_ and are built with ``make -C spec``. The C library
-is under `libeola/ <libeola/>`_, the Go packages under `go/ <go/>`_, and
-the test vectors both pass under `vectors/ <vectors/>`_. A patch is
-contributed as described in `CONTRIBUTING.rst <CONTRIBUTING.rst>`_, and a
-vulnerability is reported as described in `SECURITY.md <SECURITY.md>`_.
+The documentation and the specification drafts are published at
+https://eola.szymon-wilczek.me/. The C library is under
+`libeola/ <libeola/>`_, the Go packages under `go/ <go/>`_, and the test
+vectors both pass under `vectors/ <vectors/>`_. A patch is contributed as
+described in `CONTRIBUTING.rst <CONTRIBUTING.rst>`_, and a vulnerability
+is reported as described in `SECURITY.md <SECURITY.md>`_.
 
 Licensing
 =========
