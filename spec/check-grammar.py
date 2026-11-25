@@ -8,7 +8,9 @@ reference is defined there or is a core rule of RFC 5234. When every
 rule is defined, each vector of the draft is parsed with the grammar:
 a vector whose result is "ok" matches the grammar; a vector with an
 error code of a rule the grammar does not state, such as a size limit
-or a range, is skipped; every other vector does not match.
+or a range, the document type or key a receiver expects, the uniqueness
+of a reserved field name, or the signature itself, is skipped; every
+other vector does not match.
 """
 
 import pathlib
@@ -32,12 +34,18 @@ DRAFTS = {
             "document": "document",
             "hex": "hex-value",
             "decimal": "decimal-value",
+            "verify": "signed-document",
         },
         "codes_outside_grammar": {
             "document_too_large",
             "line_too_long",
             "value_hex_length",
             "value_decimal_range",
+            "document_type_unexpected",
+            "signature_position",
+            "signer_position",
+            "signer_unexpected",
+            "signature_invalid",
         },
     },
 }

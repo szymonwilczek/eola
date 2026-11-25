@@ -20,15 +20,19 @@ Packages
 
    .. code-block:: go
 
-      parsed, err := document.Parse(text)
-      if errors.Is(err, status.LineTooLong) {
+      verified, err := document.Verify(text, "heartbeat", publisherKey)
+      if errors.Is(err, status.SignatureInvalid) {
               // ...
       }
 
 ``document``
-   ``document.Parse`` applies the processing rules of the signed document
-   format and returns the document type and the fields in their order, or
-   the ``status.Code`` of the first rule the text breaks.
+   ``document.Verify`` applies the processing rules and the signature
+   processing rules of the signed document format for the document type
+   and the Ed25519 public key the caller expects, and returns the document
+   type and the fields in their order, or the ``status.Code`` of the first
+   rule the text breaks. ``document.Sign`` adds the ``signer`` and
+   ``signature`` fields of a private key to an unsigned document.
+   ``document.Parse`` checks the framing alone.
    ``document.MaxDocumentLength`` and ``document.MaxLineLength`` are the
    limits of the format. ``document.DecodeHexValue`` and
    ``document.DecodeDecimalValue`` decode a field value, as the
@@ -50,7 +54,9 @@ Testing
    $ go test -race ./...
    $ golangci-lint run ./...
 
-The tests run the test vectors of ``vectors/``. Two fuzz tests take the
+The tests run the test vectors of ``vectors/``, and sign each valid
+signed vector again with its key of ``test-keys.txt`` to compare the
+result with the vector. Two fuzz tests take the
 vectors as their seed corpus: ``FuzzParse`` checks that every document
 ``Parse`` accepts rebuilds to its input, and ``FuzzDecodeValues`` that
 every value a decoder accepts encodes back to its input and that the

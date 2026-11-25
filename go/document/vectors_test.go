@@ -5,6 +5,7 @@ package document_test
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -70,10 +71,26 @@ func resultName(err error) string {
 	return err.Error()
 }
 
-// TestVectors runs the test vectors through Parse, DecodeHexValue and
-// DecodeDecimalValue. Every valid document is rebuilt from its parsed type
-// and fields, and every valid value is encoded again from what it decodes
-// to, to check that decoding loses no octet.
+// parseVerifyCheck returns the document type and the key of a check
+// "verify:<type>:<key>".
+func parseVerifyCheck(t testing.TB, check string) (string, ed25519.PublicKey) {
+	t.Helper()
+	arguments := strings.TrimPrefix(check, "verify:")
+	separator := strings.LastIndexByte(arguments, ':')
+	if separator < 0 {
+		t.Fatalf("malformed check %s", check)
+	}
+	key, err := document.DecodeHexValue(arguments[separator+1:], ed25519.PublicKeySize)
+	if err != nil {
+		t.Fatalf("malformed check %s", check)
+	}
+	return arguments[:separator], key
+}
+
+// TestVectors runs the test vectors through Parse, DecodeHexValue,
+// DecodeDecimalValue and Verify. Every valid document is rebuilt from its
+// type and fields, and every valid value is encoded again from what it
+// decodes to, to check that decoding loses no octet.
 func TestVectors(t *testing.T) {
 	for _, vector := range readManifest(t) {
 		t.Run(vector.file, func(t *testing.T) {
@@ -97,6 +114,13 @@ func TestVectors(t *testing.T) {
 				var octets []byte
 				octets, err = document.DecodeHexValue(string(text), length)
 				encoded = []byte(hex.EncodeToString(octets))
+			case strings.HasPrefix(vector.check, "verify:"):
+				documentType, key := parseVerifyCheck(t, vector.check)
+				var verified *document.Document
+				verified, err = document.Verify(text, documentType, key)
+				if err == nil {
+					encoded = rebuild(verified)
+				}
 			case vector.check == "decimal":
 				var value uint64
 				value, err = document.DecodeDecimalValue(string(text))

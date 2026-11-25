@@ -11,6 +11,8 @@ const char *eola_status_name(enum eola_status status)
 		return "ok";
 	case EOLA_STATUS_INVALID_ARGUMENT:
 		return "invalid_argument";
+	case EOLA_STATUS_CRYPTO_FAILURE:
+		return "crypto_failure";
 	case EOLA_STATUS_DOCUMENT_TOO_LARGE:
 		return "document_too_large";
 	case EOLA_STATUS_DOCUMENT_CHARACTER:
@@ -35,6 +37,8 @@ const char *eola_status_name(enum eola_status status)
 		return "field_no_value";
 	case EOLA_STATUS_FIELD_SEPARATOR:
 		return "field_separator";
+	case EOLA_STATUS_DOCUMENT_TYPE_UNEXPECTED:
+		return "document_type_unexpected";
 	case EOLA_STATUS_VALUE_HEX:
 		return "value_hex";
 	case EOLA_STATUS_VALUE_HEX_LENGTH:
@@ -43,6 +47,18 @@ const char *eola_status_name(enum eola_status status)
 		return "value_decimal";
 	case EOLA_STATUS_VALUE_DECIMAL_RANGE:
 		return "value_decimal_range";
+	case EOLA_STATUS_SIGNATURE_MISSING:
+		return "signature_missing";
+	case EOLA_STATUS_SIGNATURE_POSITION:
+		return "signature_position";
+	case EOLA_STATUS_SIGNER_MISSING:
+		return "signer_missing";
+	case EOLA_STATUS_SIGNER_POSITION:
+		return "signer_position";
+	case EOLA_STATUS_SIGNER_UNEXPECTED:
+		return "signer_unexpected";
+	case EOLA_STATUS_SIGNATURE_INVALID:
+		return "signature_invalid";
 	}
 	return NULL;
 }

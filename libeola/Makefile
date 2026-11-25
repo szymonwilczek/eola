@@ -9,6 +9,7 @@ CC ?= cc
 CLANG ?= clang
 CLANG_FORMAT ?= clang-format
 VALGRIND ?= valgrind
+PKG_CONFIG ?= pkg-config
 BUILD_DIR ?= build
 VECTORS_DIR := ../vectors
 
@@ -29,14 +30,19 @@ WARNINGS := -Wall -Wextra -Werror -Wpedantic -Wshadow -Wconversion \
 CFLAGS ?= -O2 -g
 EOLA_CFLAGS := -std=c11 $(WARNINGS) -Iinclude -MMD -MP
 
+# libcrypto of OpenSSL, found with pkg-config unless set.
+OPENSSL_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags libcrypto)
+OPENSSL_LIBS ?= $(shell $(PKG_CONFIG) --libs libcrypto)
+
 SANITIZE_FLAGS := -fsanitize=address,undefined -fno-sanitize-recover=all \
 	-fno-omit-frame-pointer
 
-LIBRARY_SOURCES := src/document.c src/status.c src/value.c
+LIBRARY_SOURCES := src/document.c src/signature.c src/status.c src/value.c \
+	src/verify.c
 TEST_PROGRAMS := vectors arguments
 FUZZ_TARGETS := document value
 C_SOURCES := $(LIBRARY_SOURCES) $(TEST_PROGRAMS:%=tests/%.c) \
-	$(FUZZ_TARGETS:%=fuzz/%.c) $(wildcard include/eola/*.h)
+	$(FUZZ_TARGETS:%=fuzz/%.c) $(wildcard include/eola/*.h src/*.h)
 
 # The fuzz targets are built with clang, libFuzzer and both sanitizers.
 # "make fuzz-run" seeds each corpus with the test vectors and runs each
@@ -58,17 +64,19 @@ $(1)_TESTS := $$(TEST_PROGRAMS:%=$$($(1)_DIR)/tests/%)
 
 $$($(1)_DIR)/%.o: src/%.c
 	@mkdir -p $$(@D)
-	$$(QUIET_CC)$$(CC) $$(EOLA_CFLAGS) $$(CFLAGS) $(2) -c -o $$@ $$<
+	$$(QUIET_CC)$$(CC) $$(EOLA_CFLAGS) $$(OPENSSL_CFLAGS) $$(CFLAGS) $(2) \
+		-c -o $$@ $$<
 
 $$($(1)_DIR)/tests/%.o: tests/%.c
 	@mkdir -p $$(@D)
-	$$(QUIET_CC)$$(CC) $$(EOLA_CFLAGS) $$(CFLAGS) $(2) -c -o $$@ $$<
+	$$(QUIET_CC)$$(CC) $$(EOLA_CFLAGS) $$(OPENSSL_CFLAGS) $$(CFLAGS) $(2) \
+		-c -o $$@ $$<
 
 $$($(1)_LIBRARY): $$($(1)_OBJECTS)
 	$$(QUIET_AR)$$(AR) rcs $$@ $$^
 
 $$($(1)_DIR)/tests/%: $$($(1)_DIR)/tests/%.o $$($(1)_LIBRARY)
-	$$(QUIET_LD)$$(CC) $$(CFLAGS) $(2) -o $$@ $$^
+	$$(QUIET_LD)$$(CC) $$(CFLAGS) $(2) -o $$@ $$^ $$(OPENSSL_LIBS)
 
 -include $$(wildcard $$($(1)_DIR)/*.d $$($(1)_DIR)/tests/*.d)
 endef
@@ -98,10 +106,10 @@ check-valgrind: $(release_TESTS)
 	$(call run_tests,$(VALGRIND) --quiet --error-exitcode=1 \
 		--leak-check=full --errors-for-leak-kinds=all,release)
 
-$(FUZZ_DIR)/%: fuzz/%.c $(LIBRARY_SOURCES) $(wildcard include/eola/*.h)
+$(FUZZ_DIR)/%: fuzz/%.c $(LIBRARY_SOURCES) $(wildcard include/eola/*.h src/*.h)
 	@mkdir -p $(@D)
-	$(QUIET_CC)$(CLANG) $(EOLA_CFLAGS) $(CFLAGS) $(FUZZ_FLAGS) -o $@ \
-		$< $(LIBRARY_SOURCES)
+	$(QUIET_CC)$(CLANG) $(EOLA_CFLAGS) $(OPENSSL_CFLAGS) $(CFLAGS) \
+		$(FUZZ_FLAGS) -o $@ $< $(LIBRARY_SOURCES) $(OPENSSL_LIBS)
 
 fuzz: $(FUZZ_PROGRAMS)
 
@@ -141,4 +149,5 @@ help:
 	@echo "  clean           remove $(BUILD_DIR)"
 	@echo "  help            list the targets and the variables"
 	@echo "Variables: CC, CLANG, CFLAGS, BUILD_DIR, CLANG_FORMAT, VALGRIND,"
-	@echo "FUZZ_SECONDS, V=1 for full commands."
+	@echo "FUZZ_SECONDS, PKG_CONFIG, OPENSSL_CFLAGS, OPENSSL_LIBS, V=1 for"
+	@echo "full commands."

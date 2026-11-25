@@ -2,8 +2,8 @@
 /* Copyright (C) 2026 Szymon Wilczek */
 /*
  * Checks the behaviour of the public functions at the edges that the test
- * vectors do not reach: arguments that are NULL, and the empty document
- * passed as a NULL pointer.
+ * vectors do not reach: arguments that are NULL, the empty document
+ * passed as a NULL pointer, and the document a failed call leaves.
  */
 #include <eola/document.h>
 #include <eola/status.h>
@@ -29,6 +29,7 @@ int main(void)
 	struct eola_document document, untouched;
 	struct eola_field field;
 	unsigned char octets[2] = {0x5a, 0x5a};
+	static const unsigned char signer[EOLA_PUBLIC_KEY_LENGTH];
 	uint64_t value = 7;
 	size_t cursor = 0;
 
@@ -96,6 +97,30 @@ int main(void)
 			       EOLA_STATUS_VALUE_DECIMAL &&
 		       value == 7,
 	       "a failed decimal decode leaves the value untouched");
+
+	expect(eola_document_verify(text, sizeof(text) - 1, NULL, signer,
+				    &document) == EOLA_STATUS_INVALID_ARGUMENT,
+	       "verify without an expected type is an invalid argument");
+	expect(eola_document_verify(text, sizeof(text) - 1, "heartbeat", NULL,
+				    &document) == EOLA_STATUS_INVALID_ARGUMENT,
+	       "verify without an expected signer is an invalid argument");
+	expect(eola_document_verify(text, sizeof(text) - 1, "heartbeat", signer,
+				    NULL) == EOLA_STATUS_INVALID_ARGUMENT,
+	       "verify without a document to write is an invalid argument");
+	expect(eola_document_verify(NULL, 1, "heartbeat", signer, &document) ==
+		       EOLA_STATUS_INVALID_ARGUMENT,
+	       "verify of NULL text with a length is an invalid argument");
+	expect(eola_document_verify(NULL, 0, "heartbeat", signer, &document) ==
+		       EOLA_STATUS_DOCUMENT_UNTERMINATED,
+	       "verify of NULL text of length 0 is the empty document");
+
+	memset(&document, 0x5a, sizeof(document));
+	memcpy(&untouched, &document, sizeof(document));
+	expect(eola_document_verify(text, sizeof(text) - 1, "heartbeat", signer,
+				    &document) ==
+			       EOLA_STATUS_SIGNATURE_MISSING &&
+		       memcmp(&document, &untouched, sizeof(document)) == 0,
+	       "a failed verify leaves the document untouched");
 
 	expect(eola_status_name((enum eola_status)99) == NULL,
 	       "a value that is not a status code has no name");

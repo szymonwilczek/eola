@@ -131,8 +131,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install valgrind
-        run: sudo apt-get update && sudo apt-get install -y valgrind
+      - name: Install libcrypto and valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config valgrind
 
       - name: Run the tests and the test vectors
         run: make -C libeola check CC=${{ matrix.compiler }}
@@ -197,6 +199,11 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+
+      - name: Install libcrypto
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config
 
       - name: Fuzz libeola, seeded with the test vectors
         run: make -C libeola fuzz-run FUZZ_SECONDS=60
