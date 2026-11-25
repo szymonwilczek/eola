@@ -46,6 +46,14 @@ informative:
     seriesinfo:
       "28th Annual Symposium on Foundations of Computer Science": "pp. 427-438"
       DOI: 10.1109/SFCS.1987.4
+  EOLA-SIGNED-DOCUMENT:
+    title: End-Of-Life Attestation (EOLA) Signed Document
+    author:
+      - ins: S. Wilczek
+        name: Szymon Wilczek
+    date: 2026-11
+    seriesinfo:
+      Internet-Draft: draft-wilczek-eola-signed-document-00
 
 --- abstract
 
@@ -167,6 +175,11 @@ Passport:
 Directory:
 : A service that accepts registrations of game servers and returns the
   list of servers registered for a game identifier.
+
+Carrier:
+: A party that passes on a document it has not signed: the network
+  between two parties, a directory, a mirror, an archive, a server, or a
+  player who supplies a file.
 
 Official server:
 : A game server whose registration is signed by an operational key.
@@ -315,9 +328,9 @@ again as official servers next to the community servers.
 
 The transition depends on the clock of the player's device. A player who
 sets the clock forward reaches COMMUNITY early on that device. This gains
-nothing a player cannot already do with a private server: before the end
-of life, the escrow is closed and no community server can run a build
-from the server manifest.
+nothing a player cannot already do with a private server: the escrow
+opens by the decisions of the trustees ({{escrow}}), and the clock of a
+player's device takes no part in them.
 
 ## Announced End of Life
 
@@ -433,36 +446,201 @@ endorsement certificate of a server TPM is visible to every client that
 appraises the server; a server is public by its nature, so this links
 only the server to its own hardware.
 
-# Security Considerations
+A player uses the same player key on every server, so community servers
+that compare what they see can link the sessions of a player across
+servers.
 
-This section states what the architecture guarantees and what it does
-not. Each layer document states the threats to that layer.
+# Security Considerations {#security}
+
+This section is the threat model of EOLA: the assets EOLA protects, the
+adversaries it considers, and, for each adversary, what EOLA guarantees
+and what it does not. It states only what follows from the architecture.
+Each layer document states the threats to the mechanisms it defines.
+
+## Assets
+
+Life-cycle state:
+: The state of a client ({{life-cycle}}), which decides whether the
+  client plays on official servers or on community servers.
+
+Escrow:
+: The server program, which stays closed while the publisher operates
+  the game and becomes available to anyone after the end of life.
+
+Player identity and progress:
+: The player key, the license that binds it to the game, and the
+  passport that records the progress of the player.
+
+Server properties:
+: What a client shows a player about a server: that it is an official
+  server, or that it is a verified server.
+
+Play after the end of life:
+: The ability of players to find a community server, to join it with
+  their passports, and to run the server program from the escrow.
+
+## Carriers
+
+A carrier can withhold, delay, replay, reorder, and modify the documents
+it passes on. Every document is signed {{EOLA-SIGNED-DOCUMENT}}, so a
+modified document fails verification. A client ignores a heartbeat with
+a lower sequence number than one it holds ({{documents}}), so a replayed
+heartbeat does not move it back to an older state.
 
 A party without an operational key cannot extend the life of the
 official service, and a party without the root key cannot announce the
-end of life early. A party without these keys can affect the state of a
-client only by withholding heartbeats from it, which moves that client
-toward COMMUNITY, never away from it.
+end of life early. Through the documents it carries, a carrier can
+affect the state of a client only by withholding them. Withholding
+heartbeats moves that client toward COMMUNITY, never away from it;
+withholding them until the grace period has passed since the last
+heartbeat the client verified expired moves it to COMMUNITY early, with
+the effect described for a clock set forward in {{life-cycle}}.
+Withholding an end-of-life notice leaves the client to reach COMMUNITY
+when its last heartbeat has expired and the grace period has passed.
 
-A stolen operational key lets the thief sign heartbeats, licenses, and
-passports until the publisher revokes it. Revocation needs the root key,
-so the security of the root key bounds the damage. Passports signed by a
+The state of a client also depends on the clock of its device
+({{life-cycle}}). A party that sets that clock, for example through a
+time service the device does not authenticate, moves the client to
+COMMUNITY early by setting it forward, and keeps the client in OFFICIAL
+on an expired heartbeat by setting it back.
+
+EOLA does not guarantee that a document reaches its receiver. A client
+that does not receive a revocation keeps accepting documents signed by
+the revoked operational key, and a trustee that does not receive
+heartbeats acts as described in {{trustees}}.
+
+## Directories
+
+A directory carries server registrations and chooses which of them it
+returns. A client shows a server as an official server only when the
+signature of its registration verifies, and as a verified server only
+when it has appraised the evidence of the server ({{trust}}), so a
+directory cannot make a client show either property for a server whose
+registration or evidence does not verify.
+
+EOLA does not guarantee that a directory returns every registration. A
+client that reaches only directories that omit a server cannot find that
+server. A game ships with the addresses of several directories, and any
+party can run one.
+
+## Thieves of an Operational Key
+
+A stolen operational key lets the thief sign heartbeats, licenses,
+passports, and official server registrations until the publisher revokes
+it. The heartbeats of the thief keep clients in OFFICIAL and the escrow
+closed until the publisher revokes the key or a verified end-of-life
+notice reaches its shutdown time, and its registrations make its servers
+appear as official servers. Revocation needs the root key, so the
+security of the root key bounds the damage. Passports signed by a
 revoked key become invalid and have to be issued again, which is
 possible only while the publisher operates the game.
+
+## Thieves of the Root Key
+
+The thief of the root key can sign every document the root key signs. It
+can certify operational keys of its own, revoke the operational keys of
+the publisher, sign an end-of-life notice that makes trustees publish
+their shares, and sign a server manifest that lists a build of its
+choice, so that a server running that build in an appliance becomes a
+verified server.
+
+A client trusts exactly the root key it ships with ({{keys}}), and EOLA
+provides no recovery from the theft of the root key. A release of the
+game with a new root key has a new game identifier, and EOLA treats it
+as a different game.
+
+## Dishonest Publishers
+
+The publisher holds the root key and the operational keys, so EOLA does
+not prevent it from signing false documents. When the publisher stops
+signing heartbeats, clients enter COMMUNITY and trustees publish their
+shares once the grace period has passed, without any further action of
+the publisher ({{life-cycle}}, {{escrow}}).
+
+EOLA detects the absence of heartbeats, not the absence of service. A
+publisher that keeps signing heartbeats keeps clients in OFFICIAL and the
+escrow closed whether or not its servers still answer. The signer of a
+heartbeat chooses the time until which it is valid, and the architecture
+sets no limit on that time, so a single heartbeat valid far into the
+future has the same effect without any further action of the publisher
+or of a thief of an operational key.
+
+The publisher chooses the grace period, the trustees, and the threshold.
+A long grace period delays community operation, and trustees that are
+not independent of the publisher, or a low threshold, weaken the escrow.
+
+A trustee can check its share against the published commitments, and
+anyone can check a ciphertext against the escrow manifest. EOLA gives
+no means to check, before the escrow is opened, that a ciphertext holds
+a working server program.
+
+## Trustees {#trustees}
 
 Trustees that reach the threshold together can open the escrow before
 the end of life. The publisher limits this risk by the choice of the
 threshold and of trustees that are independent of each other and of the
 publisher.
 
+A trustee decides from the heartbeats and end-of-life notices it
+verifies and from its own clock ({{escrow}}). A party that withholds
+heartbeats from the threshold number of trustees until the grace period
+has passed since the last heartbeat they verified expired, or that sets
+their clocks forward, has the same effect as their collusion.
+
+When fewer than the threshold number of trustees publish their shares,
+the escrow stays closed after the end of life, and EOLA gives community
+servers no other means to obtain the server program.
+
+## Operators of Community Servers
+
+The operator of a community server has full control of its machine
+({{trust}}). A client shows a server as a verified server only on
+evidence signed by a TPM, and an unverified server can run any software.
 The binding of the quote to the session channel key prevents a server
 from relaying the evidence of a genuine appliance while serving players
-from a different machine. A verified server does not protect against an
-attacker with physical access to the TPM bus, firmware that records
-false measurements, remote exploitation of the kernel or the server
-program, or cheating on the client side. A verified server means that
-the server started an official build in an appliance its operator cannot
-log in to.
+from a different machine.
+
+A verified server means that the server started an official build in an
+appliance its operator cannot log in to.
+
+## Quantum Attackers
+
+The root key, the operational keys, and the player keys are Ed25519 key
+pairs. An attacker with a cryptographically relevant quantum computer
+can derive the private key of a public key it sees, and so acts as the
+thief of each of these keys, the root key included. The guarantees of
+this section hold only against an attacker without such a computer.
+{{EOLA-SIGNED-DOCUMENT}} states this risk for the signature of a
+document.
+
+The commitments that let anyone check a share of the escrow key
+{{FELDMAN}} rest on the discrete logarithm problem, and the commitment
+to the escrow key itself is public from release, as are the
+ciphertexts. Such an attacker computes the escrow key from these public
+data and opens the escrow without any trustee, for every game whose
+escrow it has kept a copy of, however long ago the game was released.
+A signature scheme resistant to such an attacker does not remove this
+risk.
+
+A verified server rests on quotes signed by keys of a TPM. Whether such
+an attacker can forge a quote depends on the algorithms of those keys,
+which the attestation document specifies.
+
+## Outside the Threat Model
+
+EOLA does not protect against:
+
+* an attacker with physical access to the TPM bus of a server, or
+  firmware that records false measurements;
+
+* remote exploitation of the kernel or the server program of an
+  appliance;
+
+* cheating on the client side;
+
+* a modified copy of the game: a client trusts the root key and runs the
+  code it ships with, so a player who installs a copy with another root
+  key or other code gets the decisions of that copy.
 
 # IANA Considerations
 
