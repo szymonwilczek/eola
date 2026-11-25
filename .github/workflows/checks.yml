@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+
+name: Checks
+
+on:
+  push:
+    branches: [eola-next, main]
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+# A newer push to a pull request supersedes its running checks;
+# pushes to the integration and release branches run to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  patch:
+    name: patch checks
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The runner holds no contributor keys, so signatures are verified
+      # through the GitHub API against the keys on each author's account.
+      - name: Check the pull request commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PATCH_BRANCH: ${{ github.head_ref }}
+          PATCH_TITLE: ${{ github.event.pull_request.title }}
+          PATCH_SIGNATURES: github
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/check-patch "$BASE_SHA" "$HEAD_SHA"
+
+  documentation:
+    name: documentation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install the documentation toolchain
+        run: pip install -r Documentation/requirements.txt
+
+      - name: Lint reStructuredText
+        run: make -C Documentation lint
+
+      - name: Build HTML, warnings as errors
+        run: make -C Documentation html
+
+      # External sites go down and come back; a broken external link is
+      # reported without failing the job. Internal references are checked
+      # by the strict build.
+      - name: Check links
+        run: make -C Documentation linkcheck
+        continue-on-error: true
+
+      - name: Upload the built HTML
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: documentation-html
+          path: Documentation/_build/html
+          retention-days: 14
+
+  scripts:
+    name: shell scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run shellcheck
+        run: git ls-files -z 'scripts/*' | xargs -0 shellcheck -x
+
+  workflows:
+    name: workflow security
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install zizmor
+        run: pip install zizmor==1.32.0
+
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor .github/workflows

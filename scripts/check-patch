@@ -36,13 +36,21 @@ Checks:
     lines carrying a URL,
   - a prose body, without Problem: or Solution: headings,
   - body detail proportional to the change (note only),
-  - the branch name within 75 columns,
+  - the branch name within 75 columns, and the pull request title under
+    the subject rules when PATCH_TITLE is set,
   - trailing whitespace in patches and commit messages, and trailing blank
     lines in changed files,
   - a strict documentation build and sphinx-lint when a reStructuredText
     file or Documentation/ changes (skipped if the tools are missing).
 
 Merge commits are exempt from the commit message checks.
+
+Environment:
+  PATCH_BRANCH      branch name to check in place of the current branch
+  PATCH_TITLE       pull request title, checked under the subject rules
+  PATCH_SIGNATURES  "github" asks the GitHub API whether each commit is
+                    verified, for GITHUB_REPOSITORY with the GH_TOKEN token;
+                    unset, the local keyring decides
 
 Each check prints one line: PASS, FAIL with a fix: line, SKIP with the
 reason, or INFO. The exit status is 1 when any check fails.
@@ -109,21 +117,54 @@ resolve_base() {
     return 1
 }
 
+# %G? is G for a good signature and U for a good one from an untrusted
+# key; anything else is bad, expired, revoked, unverifiable or absent.
+local_signature_status() {
+    local signature_status
+
+    signature_status=$(git log -1 --format='%G?' "$1")
+    case "$signature_status" in
+        G | U) printf 'good' ;;
+        *) printf '%s' "$signature_status" ;;
+    esac
+}
+
+# A runner holds no contributor keys, so it asks GitHub, which checks the
+# signature against the keys registered on the author's account.
+github_signature_status() {
+    local verification
+
+    if ! verification=$(gh api "repos/$GITHUB_REPOSITORY/commits/$1" \
+                            --jq '.commit.verification | "\(.verified) \(.reason)"' 2>/dev/null); then
+        verification="false not found on GitHub"
+    fi
+    case "$verification" in
+        "true "*) printf 'good' ;;
+        *) printf '%s' "${verification#false }" ;;
+    esac
+}
+
 check_commit_signatures() {
     local result=0
     local commit signature_status
 
-    # %G? is G for a good signature and U for a good one from an untrusted
-    # key; anything else is bad, expired, revoked, unverifiable or absent.
+    if [[ ${PATCH_SIGNATURES:-} == github ]] &&
+           { [[ -z ${GITHUB_REPOSITORY:-} ]] || ! command -v gh >/dev/null 2>&1; }; then
+        fail "commit signatures" \
+             "PATCH_SIGNATURES=github needs gh, GITHUB_REPOSITORY and GH_TOKEN."
+        return
+    fi
+
     for commit in "$@"; do
-        signature_status=$(git log -1 --format='%G?' "$commit")
-        case "$signature_status" in
-            G | U) ;;
-            *)
-                report_commit "$commit" " (signature: $signature_status)"
-                result=1
-                ;;
-        esac
+        if [[ ${PATCH_SIGNATURES:-} == github ]]; then
+            signature_status=$(github_signature_status "$commit")
+        else
+            signature_status=$(local_signature_status "$commit")
+        fi
+        if [[ $signature_status != good ]]; then
+            report_commit "$commit" " (signature: $signature_status)"
+            result=1
+        fi
     done
 
     if ((result == 0)); then
@@ -211,7 +252,7 @@ check_commit_subjects() {
 check_branch_name() {
     local branch
 
-    branch=$(git symbolic-ref --quiet --short HEAD || true)
+    branch=${PATCH_BRANCH:-$(git symbolic-ref --quiet --short HEAD || true)}
     case "$branch" in
         "" | eola-next | main)
             skip "branch name" "not on a feature branch."
@@ -224,6 +265,20 @@ check_branch_name() {
         fail "branch name" "rename the branch with git branch -m."
     else
         pass "branch name"
+    fi
+}
+
+check_pull_request_title() {
+    if [[ -z ${PATCH_TITLE:-} ]]; then
+        skip "pull request title" "PATCH_TITLE is not set."
+        return
+    fi
+
+    if check_subject_text "$PATCH_TITLE" "pull request title"; then
+        pass "pull request title"
+    else
+        fail "pull request title" \
+             "edit the title under the subject rules; the commit subject of a single-commit pull request fits."
     fi
 }
 
@@ -526,6 +581,7 @@ main() {
         check_message_whitespace "${message_commits[@]}"
     fi
     check_branch_name
+    check_pull_request_title
     check_patch_whitespace "${commits[@]}"
     check_file_endings "${changed_files[@]}"
     check_documentation "${changed_files[@]}"

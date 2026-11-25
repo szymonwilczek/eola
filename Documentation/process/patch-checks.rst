@@ -32,6 +32,8 @@ Checks
 
 commit signatures
    Every commit has a good GPG or SSH signature (``%G?`` is ``G`` or ``U``).
+   With ``PATCH_SIGNATURES=github``, every commit is one GitHub marks
+   verified.
 
 Developer Certificate of Origin
    Every commit carries ``Signed-off-by: Name <email>``, preceded by one
@@ -58,8 +60,12 @@ commit message whitespace
    Commit messages have no trailing whitespace and no trailing blank lines.
 
 branch name
-   The current branch name is at most 75 columns. Skipped on ``eola-next``,
-   on ``main`` and on a detached ``HEAD``.
+   The current branch name, or ``PATCH_BRANCH`` when set, is at most 75
+   columns. Skipped on ``eola-next``, on ``main`` and on a detached ``HEAD``.
+
+pull request title
+   ``PATCH_TITLE`` passes the commit subject checks. Skipped when it is not
+   set.
 
 patch whitespace
    ``git show --check`` passes on every commit, and ``git diff --check``
@@ -79,6 +85,45 @@ sphinx-lint
    ``sphinx-lint`` is missing.
 
 Merge commits are exempt from the commit message checks.
+
+Environment
+===========
+
+``PATCH_BRANCH``
+   Branch name checked in place of the current branch.
+
+``PATCH_TITLE``
+   Pull request title, checked under the commit subject rules.
+
+``PATCH_SIGNATURES``
+   ``github`` asks the GitHub API whether each commit is verified, for the
+   repository named by ``GITHUB_REPOSITORY``, with the token in
+   ``GH_TOKEN``. The commits must be on GitHub already. When unset, the local
+   keyring decides.
+
+Continuous integration
+======================
+
+``.github/workflows/checks.yml`` runs on every pull request and on every push
+to ``eola-next`` and ``main``:
+
+patch checks
+   ``scripts/check-patch`` over the pull request commits, with
+   ``PATCH_BRANCH``, ``PATCH_TITLE`` and ``PATCH_SIGNATURES=github`` set.
+   Pull requests only.
+
+documentation
+   ``make -C Documentation lint`` and ``make -C Documentation html``. The
+   ``linkcheck`` result is reported without failing the job, and the built
+   HTML is kept as a workflow artifact for 14 days.
+
+shell scripts
+   ``shellcheck -x`` on every file under ``scripts/``.
+
+workflow security
+   ``zizmor`` on the workflows, configured by ``.github/zizmor.yml``: actions
+   from ``actions/*`` and ``github/*`` are referenced by version tag, every
+   other action by full commit hash.
 
 Rewrapping messages
 ===================
@@ -103,6 +148,9 @@ Files
 
 ``scripts/format-patch``
    The message rewrite.
+
+``.github/workflows/checks.yml``
+   The continuous integration jobs.
 
 ``scripts/lib/commit-limits.sh``
    The column limit and the pattern of body lines exempt from it, shared by
