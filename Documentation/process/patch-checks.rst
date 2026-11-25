@@ -148,10 +148,6 @@ Go
    ``go test -race ./...`` and ``golangci-lint run ./...`` in ``go/``, with
    the Go version of ``go/go.mod``.
 
-fuzzing
-   ``make -C libeola fuzz-run`` and both Go fuzz tests, each for 60
-   seconds, seeded with the test vectors.
-
 shell scripts
    ``shellcheck -x`` on every file under ``scripts/``.
 
