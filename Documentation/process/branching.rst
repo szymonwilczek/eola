@@ -27,6 +27,31 @@ or release candidate, ``0.0.0`` before the first. A release is a commit on
 a signed tag ``v<version>`` on that commit. A release candidate is tagged
 ``v<version>-rc<n>`` the same way.
 
+A ``v*`` tag runs ``.github/workflows/release.yml``. It refuses a tag that
+does not match ``VERSION`` or is not on ``eola-next``, renders the
+specification drafts and publishes a GitHub release with:
+
+* ``eola-<version>.tar.gz``, the source of the tag from ``git archive``,
+* each specification draft as RFCXML, plain text and HTML,
+* ``SHA256SUMS``, the SHA-256 of each of these files,
+* ``SHA256SUMS.cosign.bundle``, a keyless cosign signature of
+  ``SHA256SUMS``.
+
+The notes are the message of the tagged commit. A ``0.y.z`` release and a
+release candidate are published as pre-releases. To check the files of a
+release, verify the manifest and then the files against it::
+
+    $ cosign verify-blob \
+          --bundle SHA256SUMS.cosign.bundle \
+          --certificate-identity-regexp \
+            '^https://github\.com/szymonwilczek/eola/\.github/workflows/release\.yml@refs/tags/v' \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+          SHA256SUMS
+    $ sha256sum -c SHA256SUMS
+
+A valid signature says that the release workflow, run for a ``v`` tag,
+produced the manifest.
+
 Versions follow semantic versioning. Every release before the specification
 is frozen is ``0.y.z`` and may change the ``EOLA1`` format, the C ABI or the
 Go API. ``1.0.0`` is the first release with a frozen specification. The

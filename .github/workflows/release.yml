@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+
+name: Release
+
+# A v* tag publishes a GitHub release: the source archive of the tag and
+# the specification drafts it carries, listed with their SHA-256 in
+# SHA256SUMS, which is signed keyless with cosign. The signature binds
+# the manifest, and through it every file it lists, to this workflow run
+# for the tag.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+# One run per tag; a release that is publishing is never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: publish release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # create the release and upload its files
+      id-token: write # the OIDC token cosign signs with
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The tag must name the version that VERSION holds,
+      # on a commit that eola-next carries.
+      - name: Check the tag against VERSION and eola-next
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(cat VERSION)
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::tag $TAG does not match VERSION $version"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor HEAD origin/eola-next; then
+            echo "::error::tag $TAG is not on eola-next"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install the specification toolchain
+        run: |
+          pip install -r spec/requirements.txt
+          sudo gem install --no-document kramdown-rfc -v 1.7.43
+
+      - name: Render the specification drafts
+        run: make -C spec
+
+      - name: Stage the release files and their manifest
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir release
+          git archive --format=tar.gz --prefix="eola-${TAG#v}/" \
+            -o "release/eola-${TAG#v}.tar.gz" HEAD
+          cp spec/build/draft-*.xml spec/build/draft-*.txt \
+            spec/build/draft-*.html release/
+          (cd release && sha256sum -- * >../SHA256SUMS)
+          cat SHA256SUMS
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      - name: Sign the manifest
+        run: cosign sign-blob --yes --bundle SHA256SUMS.cosign.bundle SHA256SUMS
+
+      # The notes are the message of the tagged commit without its
+      # trailers. A 0.y.z version or a version with a suffix,
+      # such as a release candidate, is published as a pre-release.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          notes=$(git log -1 --format=%b HEAD | grep -v '^Signed-off-by:' || true)
+          if [ -z "$notes" ]; then
+            notes="EOLA ${TAG#v}."
+          fi
+          prerelease=
+          case ${TAG#v} in
+            0.* | *-*) prerelease=--prerelease ;;
+          esac
+          gh release create "$TAG" --verify-tag --title "EOLA ${TAG#v}" \
+            --notes "$notes" $prerelease \
+            release/* SHA256SUMS SHA256SUMS.cosign.bundle
