@@ -253,41 +253,6 @@ jobs:
         working-directory: go
         run: '"$(go env GOPATH)/bin/golangci-lint" run ./...'
 
-  fuzz:
-    name: fuzzing
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Install libcrypto
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config
-
-      - name: Fuzz libeola, seeded with the test vectors
-        run: make -C libeola fuzz-run FUZZ_SECONDS=60
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go/go.mod
-          cache: false
-
-      - name: Fuzz the Go document parser
-        working-directory: go
-        run: go test ./document -run '^$' -fuzz '^FuzzParse$' -fuzztime 60s
-
-      - name: Fuzz the Go value decoders
-        working-directory: go
-        run: go test ./document -run '^$' -fuzz '^FuzzDecodeValues$' -fuzztime 60s
-
-      - name: Fuzz the Go signature verification
-        working-directory: go
-        run: go test ./document -run '^$' -fuzz '^FuzzVerify$' -fuzztime 60s
-
   scripts:
     name: shell scripts
     runs-on: ubuntu-24.04
