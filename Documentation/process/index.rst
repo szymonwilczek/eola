@@ -12,6 +12,7 @@ its own path, set out in :doc:`security-bugs`.
 * :doc:`contributing` -- commit format, sign-off, and what a pull request
   carries.
 * :doc:`branching` -- ``eola-next``, ``main`` and release tags.
+* :doc:`patch-checks` -- the checks a branch passes before review.
 * :doc:`security-bugs` -- private reporting and disclosure.
 * :doc:`code-of-conduct` -- conduct in issues, pull requests, reviews and
   security reports.
@@ -21,5 +22,6 @@ its own path, set out in :doc:`security-bugs`.
 
    contributing
    branching
+   patch-checks
    security-bugs
    code-of-conduct
