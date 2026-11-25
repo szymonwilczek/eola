@@ -555,6 +555,7 @@ def forged_for_key(key, body):
     """
     message = body + signer_line(key)
     point_a = point_decode_lenient(key)
+    assert point_multiply(8, point_a) == IDENTITY, "not of small order"
     nonce = 12345
     while True:
         encoded_r = point_encode(point_multiply(nonce, BASE))
@@ -589,6 +590,68 @@ def verify_check(document_type, key):
     return f"verify:{document_type}:{key.hex()}"
 
 
+IDENTITY_KEY = point_encode(IDENTITY)
+SMALL_ORDER_KEYS = sorted(
+    point_encode(point_multiply(multiple, ORDER_EIGHT)) for multiple in range(8)
+)
+assert len(set(SMALL_ORDER_KEYS)) == 8
+
+
+def is_small_order_lenient(key):
+    """Return whether a key decodes leniently to a point of small order."""
+    try:
+        return point_multiply(8, point_decode_lenient(key)) == IDENTITY
+    except AssertionError:
+        return False
+
+
+def signer_key_invalid_vectors(valid_signature):
+    """Return the vectors of keys that rule 22 rejects.
+
+    The signature of each is valid for the key under the equation of RFC
+    8032 when the key is decoded leniently, so a receiver without rule 22
+    accepts it.
+    """
+    # Encodings that are not those of Section 5.1.2 of RFC 8032: y + p for
+    # the identity, y = p, the largest y, a y not less than p with the sign
+    # bit, and x = 0 with the sign bit for the identity and the point of
+    # order 2.
+    noncanonical = [
+        ("noncanonical", point_encode(IDENTITY, P)),
+        ("noncanonical-p", P.to_bytes(32, "little")),
+        ("noncanonical-maximum", ((1 << 255) - 1).to_bytes(32, "little")),
+        ("noncanonical-sign", (P | 1 << 255).to_bytes(32, "little")),
+        ("negative-zero", bytes.fromhex("01" + "00" * 30 + "80")),
+        ("negative-zero-order-two", bytes.fromhex("ec" + "ff" * 31)),
+    ]
+    vectors = []
+    for name, key in noncanonical:
+        if is_small_order_lenient(key):
+            content = forged_for_key(key, HEARTBEAT)
+        else:
+            # Not a point of small order even when decoded leniently: no
+            # signature is known for it.
+            content = HEARTBEAT + signer_line(key) + signature_line(valid_signature)
+        vectors.append(
+            (
+                f"signed-signer-key-invalid-{name}",
+                verify_check("heartbeat", key),
+                content,
+                "signer_key_invalid",
+            )
+        )
+    for index, key in enumerate(SMALL_ORDER_KEYS):
+        vectors.append(
+            (
+                f"signed-signer-key-invalid-small-order-{index}",
+                verify_check("heartbeat", key),
+                forged_for_key(key, HEARTBEAT),
+                "signer_key_invalid",
+            )
+        )
+    return vectors
+
+
 def signed_vectors():
     """Return the signed vectors as (name, check, content, result)."""
     valid = signed(HEARTBEAT)
@@ -598,14 +661,6 @@ def signed_vectors():
     largest_body = document_of_length(
         DOCUMENT_MAX_LENGTH - SIGNER_LINE_LENGTH - SIGNATURE_LINE_LENGTH
     )
-    noncanonical_identity = point_encode(IDENTITY, P)
-    # y = p, the point (sqrt(-1), 0) of order 4: the smallest y that is
-    # not less than p.
-    y_is_p = P.to_bytes(32, "little")
-    # x = 0 with the sign bit set: y = 1, the identity, and y = p - 1, the
-    # point of order 2.
-    negative_zero = bytes.fromhex("01" + "00" * 30 + "80")
-    negative_zero_order_two = bytes.fromhex("ec" + "ff" * 31)
     off_curve = off_curve_key()
 
     vectors = [
@@ -771,7 +826,15 @@ def signed_vectors():
             + b"\n",
             "value_hex_length",
         ),
-        # Rule 22: the signer is the key the receiver expects.
+        # Rule 22: the signer is a key that binds its holder.
+        *signer_key_invalid_vectors(valid_signature),
+        (
+            "signed-signer-key-invalid-before-unexpected",
+            heartbeat,
+            forged_for_key(IDENTITY_KEY, HEARTBEAT),
+            "signer_key_invalid",
+        ),
+        # Rule 23: the signer is the key the receiver expects.
         (
             "signed-signer-unexpected",
             heartbeat,
@@ -784,7 +847,7 @@ def signed_vectors():
             with_bad_signature(signed(HEARTBEAT, "other")),
             "signer_unexpected",
         ),
-        # Rule 23: the signature is valid for the signed octets.
+        # Rule 24: the signature is valid for the signed octets.
         (
             "signed-signature-invalid-field",
             heartbeat,
@@ -869,33 +932,7 @@ def signed_vectors():
             ),
             "signature_invalid",
         ),
-        # Keys that are not the canonical encoding of a point: a forged
-        # signature is valid for them if they were decoded without the
-        # canonical check.
-        (
-            "signed-signature-invalid-key-noncanonical",
-            verify_check("heartbeat", noncanonical_identity),
-            forged_for_key(noncanonical_identity, HEARTBEAT),
-            "signature_invalid",
-        ),
-        (
-            "signed-signature-invalid-key-noncanonical-p",
-            verify_check("heartbeat", y_is_p),
-            forged_for_key(y_is_p, HEARTBEAT),
-            "signature_invalid",
-        ),
-        (
-            "signed-signature-invalid-key-negative-zero",
-            verify_check("heartbeat", negative_zero),
-            forged_for_key(negative_zero, HEARTBEAT),
-            "signature_invalid",
-        ),
-        (
-            "signed-signature-invalid-key-negative-zero-order-two",
-            verify_check("heartbeat", negative_zero_order_two),
-            forged_for_key(negative_zero_order_two, HEARTBEAT),
-            "signature_invalid",
-        ),
+        # A key that is not a point of the curve passes rule 22.
         (
             "signed-signature-invalid-key-off-curve",
             verify_check("heartbeat", off_curve),

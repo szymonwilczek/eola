@@ -34,6 +34,34 @@ var groupOrder = [32]byte{
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
 }
 
+// smallOrder holds the encodings of the eight points whose order divides
+// 8, from the Signer Keys section of draft-wilczek-eola-signed-document.
+var smallOrder = [8]string{
+	"0000000000000000000000000000000000000000000000000000000000000000",
+	"0000000000000000000000000000000000000000000000000000000000000080",
+	"0100000000000000000000000000000000000000000000000000000000000000",
+	"26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+	"26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+	"c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+	"c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+	"ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+}
+
+// isValidKey applies rule 22: the key is decodable without arithmetic and
+// is not a point of small order.
+func isValidKey(publicKey []byte) bool {
+	if !isDecodable(publicKey) {
+		return false
+	}
+	encoded := hex.EncodeToString(publicKey)
+	for _, key := range smallOrder {
+		if encoded == key {
+			return false
+		}
+	}
+	return true
+}
+
 // isBelowGroupOrder reports whether the little-endian integer s
 // is less than L.
 func isBelowGroupOrder(s []byte) bool {
@@ -61,11 +89,12 @@ func isDecodable(encoding []byte) bool {
 	return !negativeOne && !negativeZeroOne
 }
 
-// verifySignature applies rule 23 with the choices of the Signature
-// Processing Rules: S less than L, A and R canonical, the equation
-// without the cofactor, which crypto/ed25519 checks.
+// verifySignature applies rule 24 with the choices of the Signature
+// Processing Rules to a key that passed rule 22: S less than L, R
+// canonical, the equation without the cofactor, which crypto/ed25519
+// checks.
 func verifySignature(publicKey, signature, message []byte) bool {
-	return isDecodable(publicKey) && isDecodable(signature[:32]) &&
+	return isDecodable(signature[:32]) &&
 		isBelowGroupOrder(signature[32:]) &&
 		ed25519.Verify(publicKey, message, signature)
 }
@@ -131,11 +160,16 @@ func Verify(text []byte, expectedType string, expectedSigner ed25519.PublicKey) 
 	}
 
 	// Rule 22.
+	if !isValidKey(publicKey) {
+		return nil, status.SignerKeyInvalid
+	}
+
+	// Rule 23.
 	if !bytes.Equal(publicKey, expectedSigner) {
 		return nil, status.SignerUnexpected
 	}
 
-	// Rule 23. The signed message is every octet before the signature line.
+	// Rule 24. The signed message is every octet before the signature line.
 	signatureLineLength := len(signatureName) + 1 + len(signatureValue) + 1
 	if !verifySignature(publicKey, signature, text[:len(text)-signatureLineLength]) {
 		return nil, status.SignatureInvalid

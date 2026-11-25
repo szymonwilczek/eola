@@ -245,7 +245,7 @@ in the order given, and MUST reject the document at the first rule the
 value breaks, with the error code of that rule. The receiver checks the
 values of the signer and signature fields as {{signature-processing}}
 states, and the values of the other fields after the document passes
-rule 23, in the order of the fields.
+rule 24, in the order of the fields.
 
 For a hexadecimal value of n octets:
 
@@ -326,15 +326,18 @@ field, as a hexadecimal value of 32 octets, and then to the value of the
 signature field, as a hexadecimal value of 64 octets.
 
 {: start="22"}
-22. The value of the signer field is the public key the receiver
+22. The value of the signer field is a public key that a signature
+    binds to its holder, as {{signer-keys}} defines. Otherwise:
+    signer_key_invalid.
+23. The value of the signer field is the public key the receiver
     expects. Otherwise: signer_unexpected.
-23. The signature is valid for the signed message and the public key,
+24. The signature is valid for the signed message and the public key,
     as Section 5.1.7 of {{RFC8032}} verifies it with the choices below.
     Otherwise: signature_invalid.
 
 Section 5.1.7 of {{RFC8032}} leaves a verifier some choices, and
 implementations of Ed25519 make them differently {{EDDSA-VARIANTS}}.
-For rule 23 a receiver makes them as follows, so that every receiver
+For rule 24 a receiver makes them as follows, so that every receiver
 accepts and rejects the same signatures:
 
 - It rejects a signature whose S, the integer of the last 32 octets of
@@ -346,9 +349,42 @@ accepts and rejects the same signatures:
   to decode.
 - It checks the equation \[S\]B = R + \[k\]A without the cofactor 8.
 
-A document that passes rule 23 is signed with the public key the
+A document that passes rule 24 is signed with the public key the
 receiver expects. The receiver does not act on any field of a document,
-other than the type line, before the document passes rule 23.
+other than the type line, before the document passes rule 24.
+
+## Signer Keys {#signer-keys}
+
+A public key breaks rule 22 when its 32 octets are any of the
+following:
+
+- An encoding whose y-coordinate, its low 255 bits, is not less than p.
+  Such an encoding is not the encoding of Section 5.1.2 of {{RFC8032}},
+  and some implementations decode it to the point of y mod p.
+- An encoding with an x-coordinate of 0 and the sign bit set. Decoding
+  fails for it, and some implementations decode it to the point with
+  the sign bit clear.
+- The encoding of a point whose order divides 8, the cofactor. For such
+  a key A, \[k\]A is the identity whenever k is a multiple of 8, so that
+  anyone can make, for any message and without a private key, a
+  signature that the equation of rule 24 accepts, by trying on average
+  at most 8 values of R. These are the eight encodings, in hexadecimal:
+
+~~~
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000080
+0100000000000000000000000000000000000000000000000000000000000000
+26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05
+26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85
+c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a
+c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa
+ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f
+~~~
+
+The public key of every private key of Section 5.1.5 of {{RFC8032}} is a
+point of order L, so rule 22 rejects no key that a signer generates. A
+key that is not the encoding of a point of the curve passes rule 22 and
+fails to decode at rule 24.
 
 # Error Codes {#error-codes}
 
@@ -384,8 +420,9 @@ number 0 means that no rule is broken.
 | 302    | signature_position       | 19   |
 | 303    | signer_missing           | 20   |
 | 304    | signer_position          | 21   |
-| 305    | signer_unexpected        | 22   |
-| 306    | signature_invalid        | 23   |
+| 305    | signer_key_invalid       | 22   |
+| 306    | signer_unexpected        | 23   |
+| 307    | signature_invalid        | 24   |
 {: #error-code-table title="Error Codes"}
 
 # Security Considerations
@@ -421,7 +458,7 @@ fields stand only at the end, a receiver never chooses which octets the
 signature covers.
 
 A receiver trusts a document because its signer is the key the receiver
-expects (rule 22), never because the document names a key. The signer
+expects (rule 23), never because the document names a key. The signer
 field states the key a document claims to be signed with, so that a
 document signed with another key is reported as signer_unexpected and
 not only as an invalid signature.
@@ -429,6 +466,14 @@ not only as an invalid signature.
 A receiver acts on no field of a document before the signature is valid,
 so an unsigned or forged document never reaches the code that interprets
 a document type.
+
+A signature made with a key of small order binds no one: anyone forges
+one for that key. Rule 22 rejects a document that names such a key
+before the key is compared with the key the receiver expects. A
+receiver given such a key, by mistake or by a dishonest publisher,
+thus accepts no document: a document that names the key breaks rule
+22, and a document that names another key breaks rule 23. It never
+accepts a document that the publisher can later claim to be forged.
 
 The choices of {{signature-processing}} remove the differences between
 implementations of Ed25519: without them, one receiver could accept a

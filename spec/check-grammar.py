@@ -44,6 +44,7 @@ DRAFTS = {
             "document_type_unexpected",
             "signature_position",
             "signer_position",
+            "signer_key_invalid",
             "signer_unexpected",
             "signature_invalid",
         },

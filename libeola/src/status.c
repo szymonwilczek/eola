@@ -55,6 +55,8 @@ const char *eola_status_name(enum eola_status status)
 		return "signer_missing";
 	case EOLA_STATUS_SIGNER_POSITION:
 		return "signer_position";
+	case EOLA_STATUS_SIGNER_KEY_INVALID:
+		return "signer_key_invalid";
 	case EOLA_STATUS_SIGNER_UNEXPECTED:
 		return "signer_unexpected";
 	case EOLA_STATUS_SIGNATURE_INVALID:

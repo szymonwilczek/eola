@@ -102,9 +102,9 @@ bool eola_document_next_field(const struct eola_document *document,
  * @document: receives the verified document on success
  *
  * Applies processing rules 1 to 12 and the signature processing rules 17
- * to 23 of draft-wilczek-eola-signed-document in their order, and stops at
- * the first rule @text breaks. @document is written only on success;
- * its last two fields are signer and signature. @text can be NULL when
+ * to 24 of draft-wilczek-eola-signed-document in their order, and stops at
+ * the first rule @text breaks. @document is written only on success; its
+ * last two fields are signer and signature. @text can be NULL when
  * @text_length is 0. The verification calls OpenSSL, which allocates.
  *
  * Return: EOLA_STATUS_OK, the error code of the first rule @text breaks,

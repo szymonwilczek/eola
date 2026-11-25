@@ -2,7 +2,7 @@
 /* Copyright (C) 2026 Szymon Wilczek */
 /*
  * The signature processing rules of draft-wilczek-eola-signed-document,
- * rules 17 to 23, applied in the order the draft gives them after rules 1
+ * rules 17 to 24, applied in the order the draft gives them after rules 1
  * to 12. Each check carries the number of its rule.
  */
 #include <eola/document.h>
@@ -114,11 +114,15 @@ enum eola_status eola_document_verify(const char *text, size_t text_length,
 		return status;
 
 	/* Rule 22. */
+	if (!eola_signature_key_is_valid(public_key))
+		return EOLA_STATUS_SIGNER_KEY_INVALID;
+
+	/* Rule 23. */
 	if (memcmp(public_key, expected_signer, sizeof(public_key)) != 0)
 		return EOLA_STATUS_SIGNER_UNEXPECTED;
 
 	/*
-	 * Rule 23. The signed message ends with the LF before the signature
+	 * Rule 24. The signed message ends with the LF before the signature
 	 * line, and the name of the last field starts that line.
 	 */
 	status = eola_signature_verify(public_key, signature, text,

@@ -39,8 +39,9 @@ const (
 	SignaturePosition      Code = 302
 	SignerMissing          Code = 303
 	SignerPosition         Code = 304
-	SignerUnexpected       Code = 305
-	SignatureInvalid       Code = 306
+	SignerKeyInvalid       Code = 305
+	SignerUnexpected       Code = 306
+	SignatureInvalid       Code = 307
 )
 
 var names = map[Code]string{
@@ -65,6 +66,7 @@ var names = map[Code]string{
 	SignaturePosition:      "signature_position",
 	SignerMissing:          "signer_missing",
 	SignerPosition:         "signer_position",
+	SignerKeyInvalid:       "signer_key_invalid",
 	SignerUnexpected:       "signer_unexpected",
 	SignatureInvalid:       "signature_invalid",
 }
