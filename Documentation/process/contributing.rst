@@ -81,5 +81,8 @@ A pull request opens against ``eola-next`` and carries:
 * no generated build artifacts,
 * no private keys, local logs or credentials.
 
+``scripts/check-patch`` passes on the branch before the pull request opens;
+:doc:`patch-checks` describes each check.
+
 Tagging a release and merging ``eola-next`` into ``main`` are maintainer
 actions.
