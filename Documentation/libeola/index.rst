@@ -34,6 +34,16 @@ The targets of ``libeola/Makefile``:
 ``check-valgrind``
    Runs the tests under valgrind. A memory error or a leak fails the run.
 
+``fuzz``
+   Builds the libFuzzer targets of ``libeola/fuzz/`` with clang,
+   AddressSanitizer and UndefinedBehaviorSanitizer, in
+   ``libeola/build/fuzz/``.
+
+``fuzz-run``
+   Seeds the corpus of each target with the test vectors and runs it for
+   ``FUZZ_SECONDS`` seconds. An input that fails a target
+   is saved under ``libeola/build/fuzz/crashes/``.
+
 ``format``
    Formats the C sources in place with clang-format and the repository
    ``.clang-format``.
@@ -61,12 +71,19 @@ environment:
    The output directory, relative to ``libeola/``. Default: ``build``; the
    paths on this page use the default.
 
+``CLANG``
+   The compiler of the fuzz targets. Default: ``clang``.
+
 ``CLANG_FORMAT``
    The formatter of ``format`` and ``format-check``. Default:
    ``clang-format``.
 
 ``VALGRIND``
    The valgrind of ``check-valgrind``. Default: ``valgrind``.
+
+``FUZZ_SECONDS``
+   The run time of each fuzz target in ``fuzz-run``, in seconds. Default:
+   ``60``.
 
 ``V``
    ``V=1`` prints every command in full.
@@ -149,6 +166,13 @@ Files
 ``libeola/tests/``
    The tests: ``vectors.c`` runs the test vectors, ``arguments.c`` checks
    the arguments the vectors do not reach.
+
+``libeola/fuzz/``
+   The fuzz targets. ``document.c`` checks that every document the parser
+   accepts rebuilds to its input. ``value.c`` checks that every value a
+   decoder accepts encodes back to its input, and that the decimal decoder
+   agrees with ``strtoull()`` on every input of digits without a leading
+   zero.
 
 ``libeola/Makefile``
    The build and the test targets.

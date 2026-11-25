@@ -6,6 +6,7 @@
 .DEFAULT_GOAL := all
 
 CC ?= cc
+CLANG ?= clang
 CLANG_FORMAT ?= clang-format
 VALGRIND ?= valgrind
 BUILD_DIR ?= build
@@ -33,8 +34,19 @@ SANITIZE_FLAGS := -fsanitize=address,undefined -fno-sanitize-recover=all \
 
 LIBRARY_SOURCES := src/document.c src/status.c src/value.c
 TEST_PROGRAMS := vectors arguments
+FUZZ_TARGETS := document value
 C_SOURCES := $(LIBRARY_SOURCES) $(TEST_PROGRAMS:%=tests/%.c) \
-	$(wildcard include/eola/*.h)
+	$(FUZZ_TARGETS:%=fuzz/%.c) $(wildcard include/eola/*.h)
+
+# The fuzz targets are built with clang, libFuzzer and both sanitizers.
+# "make fuzz-run" seeds each corpus with the test vectors and runs each
+# target for FUZZ_SECONDS.
+FUZZ_DIR := $(BUILD_DIR)/fuzz
+FUZZ_FLAGS := -fsanitize=fuzzer,address,undefined \
+	-fno-sanitize-recover=all -fno-omit-frame-pointer
+FUZZ_PROGRAMS := $(FUZZ_TARGETS:%=$(FUZZ_DIR)/%)
+FUZZ_SECONDS ?= 60
+FUZZ_MAX_LENGTH := 65540
 
 # Each build variant has its own directory: the plain build,
 # and the build with AddressSanitizer and UndefinedBehaviorSanitizer.
@@ -70,8 +82,8 @@ define run_tests
 	$(1) $($(2)_DIR)/tests/arguments
 endef
 
-.PHONY: all check check-sanitize check-valgrind format format-check \
-	clean help
+.PHONY: all check check-sanitize check-valgrind fuzz fuzz-run format \
+	format-check clean help
 .SECONDARY:
 
 all: $(release_LIBRARY)
@@ -85,6 +97,25 @@ check-sanitize: $(sanitize_TESTS)
 check-valgrind: $(release_TESTS)
 	$(call run_tests,$(VALGRIND) --quiet --error-exitcode=1 \
 		--leak-check=full --errors-for-leak-kinds=all,release)
+
+$(FUZZ_DIR)/%: fuzz/%.c $(LIBRARY_SOURCES) $(wildcard include/eola/*.h)
+	@mkdir -p $(@D)
+	$(QUIET_CC)$(CLANG) $(EOLA_CFLAGS) $(CFLAGS) $(FUZZ_FLAGS) -o $@ \
+		$< $(LIBRARY_SOURCES)
+
+fuzz: $(FUZZ_PROGRAMS)
+
+fuzz-run: $(FUZZ_PROGRAMS)
+	@for target in $(FUZZ_TARGETS); do \
+		corpus=$(FUZZ_DIR)/corpus/$$target; \
+		mkdir -p $$corpus $(FUZZ_DIR)/crashes; \
+		cp $(VECTORS_DIR)/*/*.eola $$corpus/ || exit 1; \
+		echo "  FUZZ    $$target for $(FUZZ_SECONDS) s"; \
+		$(FUZZ_DIR)/$$target -max_total_time=$(FUZZ_SECONDS) \
+			-max_len=$(FUZZ_MAX_LENGTH) -print_final_stats=1 \
+			-artifact_prefix=$(FUZZ_DIR)/crashes/$$target- \
+			$$corpus || exit 1; \
+	done
 
 format:
 	$(CLANG_FORMAT) -i $(C_SOURCES)
@@ -102,9 +133,12 @@ help:
 	@echo "  check-sanitize  run them with AddressSanitizer and"
 	@echo "                  UndefinedBehaviorSanitizer"
 	@echo "  check-valgrind  run them under valgrind"
+	@echo "  fuzz            build the libFuzzer targets with clang"
+	@echo "  fuzz-run        run each for FUZZ_SECONDS (default 60),"
+	@echo "                  seeded with the test vectors"
 	@echo "  format          format the C sources in place"
 	@echo "  format-check    report C sources that are not formatted"
 	@echo "  clean           remove $(BUILD_DIR)"
 	@echo "  help            list the targets and the variables"
-	@echo "Variables: CC, CFLAGS, BUILD_DIR, CLANG_FORMAT, VALGRIND, V=1 for"
-	@echo "full commands."
+	@echo "Variables: CC, CLANG, CFLAGS, BUILD_DIR, CLANG_FORMAT, VALGRIND,"
+	@echo "FUZZ_SECONDS, V=1 for full commands."

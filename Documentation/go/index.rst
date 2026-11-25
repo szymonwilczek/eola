@@ -50,7 +50,18 @@ Testing
    $ go test -race ./...
    $ golangci-lint run ./...
 
-The tests run the test vectors of ``vectors/``. ``go/.golangci.yml``
+The tests run the test vectors of ``vectors/``. Two fuzz tests take the
+vectors as their seed corpus: ``FuzzParse`` checks that every document
+``Parse`` accepts rebuilds to its input, and ``FuzzDecodeValues`` that
+every value a decoder accepts encodes back to its input and that the
+decimal decoder agrees with ``strconv.ParseUint``. Go fuzzes one test per
+run:
+
+.. code-block:: console
+
+   $ go test ./document -run '^$' -fuzz '^FuzzParse$' -fuzztime 60s
+
+``go/.golangci.yml``
 enables, besides the standard linters, gocritic, misspell, errorlint and
 revive, and the gofumpt and goimports formatters.
 

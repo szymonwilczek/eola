@@ -25,7 +25,7 @@ type vector struct {
 	result string
 }
 
-func readManifest(t *testing.T) []vector {
+func readManifest(t testing.TB) []vector {
 	t.Helper()
 	manifest, err := os.ReadFile(filepath.Join(vectorDirectory, "vectors.txt"))
 	if err != nil {
