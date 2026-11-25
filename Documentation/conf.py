@@ -5,6 +5,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+import pathlib
+import sys
 
 project = "EOLA"
 author = "Szymon Wilczek"
@@ -18,12 +20,15 @@ channel = os.environ.get("EOLA_DOCS_CHANNEL", "").strip() or "stable"
 release = os.environ.get("EOLA_DOCS_VERSION", "").strip() or "local"
 version = release
 
-extensions: list[str] = []
+# The in-tree extensions are in Documentation/sphinx/.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "sphinx"))
+
+extensions: list[str] = ["kerneldoc"]
 
 source_suffix = {".rst": "restructuredtext"}
 root_doc = "index"
 language = "en"
-exclude_patterns = ["_build"]
+exclude_patterns = ["_build", "sphinx"]
 smartquotes = False
 
 try:

@@ -4,11 +4,13 @@
 # Makefile for the specification drafts
 #
 # Each draft-*.md is converted by kramdown-rfc to RFCXML and rendered by
-# xml2rfc to plain text and HTML under build/.
-# Referenced RFCs are fetched once and cached in build/.refcache.
+# xml2rfc to plain text and HTML under build/. Referenced RFCs are fetched
+# once and cached in build/.refcache. "make check" checks the ABNF of the
+# drafts against itself and the test vectors.
 
 KRAMDOWN_RFC ?= kramdown-rfc
 XML2RFC      ?= xml2rfc
+PYTHON       ?= python3
 BUILDDIR      = build
 
 DRAFTS = $(wildcard draft-*.md)
@@ -16,7 +18,7 @@ XML    = $(patsubst %.md,$(BUILDDIR)/%.xml,$(DRAFTS))
 TXT    = $(XML:.xml=.txt)
 HTML   = $(XML:.xml=.html)
 
-.PHONY: all clean
+.PHONY: all check clean
 .SECONDARY: $(XML)
 
 all: $(TXT) $(HTML)
@@ -34,6 +36,9 @@ $(BUILDDIR)/%.txt: $(BUILDDIR)/%.xml
 
 $(BUILDDIR)/%.html: $(BUILDDIR)/%.xml
 	$(XML2RFC) --no-network --quiet --html -o $@ $<
+
+check:
+	$(PYTHON) check-grammar.py
 
 clean:
 	@rm -rf $(BUILDDIR)

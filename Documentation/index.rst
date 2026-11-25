@@ -17,6 +17,21 @@ documentation:
 
 * `EOLA Architecture <spec/draft-wilczek-eola-architecture.html>`_ --
   roles, keys, documents and the life cycle of a game.
+* `EOLA Signed Document Format
+  <spec/draft-wilczek-eola-signed-document.html>`_ -- the text framing of
+  every document, its limits and its error codes.
+
+Implementations
+===============
+
+The libraries that implement the specification.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Implementations
+
+   libeola/index
+   go/index
 
 Developing EOLA
 ===============

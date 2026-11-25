@@ -1,3 +1,8 @@
 # Signatures cover exact bytes, so a checkout must never rewrite line
 # endings of text files.
 * text=auto eol=lf
+
+# Test vectors hold octets the format rejects, such as carriage returns,
+# trailing spaces, and blank lines. Git stores them as they are and its
+# whitespace checks skip them.
+/vectors/*/*.eola -text -whitespace
