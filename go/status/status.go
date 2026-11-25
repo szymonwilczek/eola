@@ -3,9 +3,11 @@
 
 // Package status holds the error codes of the EOLA specifications.
 //
-// A Code is an error. Functions of the EOLA packages return a Code,
-// so a caller compares with errors.Is or a type switch, and reports
-// the code by its name or its number as the specifications give them.
+// A Code is an error. The functions of package document report the rule
+// a document or a value breaks with a Code, so a caller compares with
+// errors.Is or a type switch, and reports the code by its name or its
+// number as the specifications give them. An error of those functions that
+// is not a Code reports an argument outside what the function accepts.
 package status
 
 import "strconv"
@@ -28,6 +30,10 @@ const (
 	FieldName            Code = 110
 	FieldNoValue         Code = 111
 	FieldSeparator       Code = 112
+	ValueHex             Code = 201
+	ValueHexLength       Code = 202
+	ValueDecimal         Code = 203
+	ValueDecimalRange    Code = 204
 )
 
 var names = map[Code]string{
@@ -43,6 +49,10 @@ var names = map[Code]string{
 	FieldName:            "field_name",
 	FieldNoValue:         "field_no_value",
 	FieldSeparator:       "field_separator",
+	ValueHex:             "value_hex",
+	ValueHexLength:       "value_hex_length",
+	ValueDecimal:         "value_decimal",
+	ValueDecimalRange:    "value_decimal_range",
 }
 
 // Name returns the name of the code as the specifications and test vectors

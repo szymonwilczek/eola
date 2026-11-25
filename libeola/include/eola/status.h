@@ -11,8 +11,8 @@
 /**
  * enum eola_status - result of a libeola function
  * @EOLA_STATUS_OK: the function succeeded
- * @EOLA_STATUS_INVALID_ARGUMENT: a pointer argument is NULL where the
- *	function reads or writes through it
+ * @EOLA_STATUS_INVALID_ARGUMENT: an argument is outside what the function
+ *	accepts, as the Return section of the function lists
  * @EOLA_STATUS_DOCUMENT_TOO_LARGE: document_too_large
  * @EOLA_STATUS_DOCUMENT_CHARACTER: document_character
  * @EOLA_STATUS_DOCUMENT_UNTERMINATED: document_unterminated
@@ -25,6 +25,10 @@
  * @EOLA_STATUS_FIELD_NAME: field_name
  * @EOLA_STATUS_FIELD_NO_VALUE: field_no_value
  * @EOLA_STATUS_FIELD_SEPARATOR: field_separator
+ * @EOLA_STATUS_VALUE_HEX: value_hex
+ * @EOLA_STATUS_VALUE_HEX_LENGTH: value_hex_length
+ * @EOLA_STATUS_VALUE_DECIMAL: value_decimal
+ * @EOLA_STATUS_VALUE_DECIMAL_RANGE: value_decimal_range
  *
  * The description of each error code is in the Error Codes section of
  * draft-wilczek-eola-signed-document.
@@ -44,6 +48,10 @@ enum eola_status {
 	EOLA_STATUS_FIELD_NAME = 110,
 	EOLA_STATUS_FIELD_NO_VALUE = 111,
 	EOLA_STATUS_FIELD_SEPARATOR = 112,
+	EOLA_STATUS_VALUE_HEX = 201,
+	EOLA_STATUS_VALUE_HEX_LENGTH = 202,
+	EOLA_STATUS_VALUE_DECIMAL = 203,
+	EOLA_STATUS_VALUE_DECIMAL_RANGE = 204,
 };
 
 /**

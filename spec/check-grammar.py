@@ -7,8 +7,8 @@ The ABNF blocks of a draft are loaded as one grammar; every rule they
 reference is defined there or is a core rule of RFC 5234. When every
 rule is defined, each vector of the draft is parsed with the grammar:
 a vector whose result is "ok" matches the grammar; a vector with an
-error code that a limit gives is skipped, since the grammar states no
-limits; every other vector does not match.
+error code of a rule the grammar does not state, such as a size limit
+or a range, is skipped; every other vector does not match.
 """
 
 import pathlib
@@ -24,12 +24,21 @@ VECTORS_DIRECTORY = SPEC_DIRECTORY.parent / "vectors"
 ABNF_BLOCK = re.compile(r"^~~~ abnf\n(.*?)^~~~$", re.MULTILINE | re.DOTALL)
 
 # Each draft: the vector directory, the start rule of each check,
-# and the error codes that a limit gives.
+# and the error codes of rules the grammar does not state.
 DRAFTS = {
     "draft-wilczek-eola-signed-document.md": {
         "vectors": "signed-document",
-        "start_rules": {"document": "document"},
-        "limit_codes": {"document_too_large", "line_too_long"},
+        "start_rules": {
+            "document": "document",
+            "hex": "hex-value",
+            "decimal": "decimal-value",
+        },
+        "codes_outside_grammar": {
+            "document_too_large",
+            "line_too_long",
+            "value_hex_length",
+            "value_decimal_range",
+        },
     },
 }
 
@@ -92,7 +101,7 @@ def check_draft(draft_name, settings):
         if start_rule is None:
             continue
         content = (vector_directory / file_name).read_bytes()
-        if result in settings["limit_codes"]:
+        if result in settings["codes_outside_grammar"]:
             continue
         expected = result == "ok"
         if matches(grammar, start_rule, content) != expected:

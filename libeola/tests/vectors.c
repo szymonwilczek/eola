@@ -3,14 +3,19 @@
 /*
  * Runs the test vectors of a manifest through libeola. Each vector is a
  * line "<file> <check> <result>"; the test reports every vector whose
- * result differs, and rebuilds every valid document from its parsed type
- * and fields to check that parsing loses no octet.
+ * result differs. Every valid document is rebuilt from its parsed type and
+ * fields, and every valid value is encoded again from what it decodes to,
+ * to check that decoding loses no octet.
  *
  * Usage: vectors <directory of vectors.txt>
  */
 #include <eola/document.h>
 #include <eola/status.h>
+#include <eola/value.h>
 
+#include <inttypes.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +23,8 @@
 #define MANIFEST_NAME "vectors.txt"
 #define PATH_MAX_LENGTH 4096
 #define MANIFEST_LINE_MAX_LENGTH 512
+#define HEX_CHECK_PREFIX "hex:"
+#define DECIMAL_TEXT_MAX_LENGTH 21
 
 /*
  * Room for a file one octet longer than the largest document,
@@ -79,21 +86,78 @@ static int document_round_trips(const struct eola_document *document,
 	       memcmp(buffer, document->text, used) == 0;
 }
 
+/* Reports a result that differs from the manifest; returns whether it does. */
+static bool result_differs(const char *name, enum eola_status status,
+			   const char *expected)
+{
+	const char *reported = eola_status_name(status);
+
+	if (strcmp(reported, expected) == 0)
+		return false;
+	printf("FAIL %s: expected %s, reported %s\n", name, expected, reported);
+	return true;
+}
+
+static int run_hex_vector(const char *name, const char *text,
+			  size_t text_length, size_t octets_length,
+			  const char *expected, unsigned char *octets)
+{
+	static const char digits[] = "0123456789abcdef";
+	enum eola_status status;
+	size_t index;
+
+	status =
+		eola_hex_value_decode(text, text_length, octets, octets_length);
+	if (result_differs(name, status, expected))
+		return -1;
+	if (status != EOLA_STATUS_OK)
+		return 0;
+	for (index = 0; index < octets_length; index++) {
+		if (text[2 * index] != digits[octets[index] >> 4] ||
+		    text[2 * index + 1] != digits[octets[index] & 0x0f]) {
+			printf("FAIL %s: the decoded octets do not encode the "
+			       "value\n",
+			       name);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static int run_decimal_vector(const char *name, const char *text,
+			      size_t text_length, const char *expected)
+{
+	char encoded[DECIMAL_TEXT_MAX_LENGTH];
+	enum eola_status status;
+	uint64_t value;
+	int length;
+
+	status = eola_decimal_value_decode(text, text_length, &value);
+	if (result_differs(name, status, expected))
+		return -1;
+	if (status != EOLA_STATUS_OK)
+		return 0;
+	length = snprintf(encoded, sizeof(encoded), "%" PRIu64, value);
+	if (length < 0 || (size_t)length != text_length ||
+	    memcmp(encoded, text, text_length) != 0) {
+		printf("FAIL %s: the decoded integer does not encode the "
+		       "value\n",
+		       name);
+		return -1;
+	}
+	return 0;
+}
+
 static int run_document_vector(const char *name, const char *text,
 			       size_t text_length, const char *expected,
 			       char *rebuilt, size_t rebuilt_size)
 {
 	struct eola_document document;
 	enum eola_status status;
-	const char *reported;
 
 	status = eola_document_parse(text, text_length, &document);
-	reported = eola_status_name(status);
-	if (strcmp(reported, expected) != 0) {
-		printf("FAIL %s: expected %s, reported %s\n", name, expected,
-		       reported);
+	if (result_differs(name, status, expected))
 		return -1;
-	}
 	if (status == EOLA_STATUS_OK &&
 	    !document_round_trips(&document, rebuilt, rebuilt_size)) {
 		printf("FAIL %s: the parsed fields do not rebuild the "
@@ -147,6 +211,21 @@ int main(int argc, char **argv)
 			if (run_document_vector(name, text, text_length,
 						expected, rebuilt,
 						sizeof(rebuilt)) != 0)
+				failure_count++;
+		} else if (strncmp(check, HEX_CHECK_PREFIX,
+				   strlen(HEX_CHECK_PREFIX)) == 0) {
+			size_t octets_length = (size_t)strtoul(
+				check + strlen(HEX_CHECK_PREFIX), NULL, 10);
+
+			if (octets_length == 0 ||
+			    octets_length > sizeof(rebuilt) ||
+			    run_hex_vector(name, text, text_length,
+					   octets_length, expected,
+					   (unsigned char *)rebuilt) != 0)
+				failure_count++;
+		} else if (strcmp(check, "decimal") == 0) {
+			if (run_decimal_vector(name, text, text_length,
+					       expected) != 0)
 				failure_count++;
 		} else {
 			printf("FAIL %s: unknown check %s\n", name, check);

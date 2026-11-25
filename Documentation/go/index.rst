@@ -30,7 +30,9 @@ Packages
    format and returns the document type and the fields in their order, or
    the ``status.Code`` of the first rule the text breaks.
    ``document.MaxDocumentLength`` and ``document.MaxLineLength`` are the
-   limits of the format.
+   limits of the format. ``document.DecodeHexValue`` and
+   ``document.DecodeDecimalValue`` decode a field value, as the
+   specification of the document type gives its encoding.
 
 ``go doc`` prints the full description of each package:
 

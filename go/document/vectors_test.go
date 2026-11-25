@@ -5,9 +5,11 @@ package document_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -68,25 +70,45 @@ func resultName(err error) string {
 	return err.Error()
 }
 
-// TestVectors runs the test vectors through Parse and rebuilds every valid
-// document from its parsed type and fields to check that parsing loses no
-// octet.
+// TestVectors runs the test vectors through Parse, DecodeHexValue and
+// DecodeDecimalValue. Every valid document is rebuilt from its parsed type
+// and fields, and every valid value is encoded again from what it decodes
+// to, to check that decoding loses no octet.
 func TestVectors(t *testing.T) {
 	for _, vector := range readManifest(t) {
 		t.Run(vector.file, func(t *testing.T) {
-			if vector.check != "document" {
-				t.Fatalf("unknown check %s", vector.check)
-			}
 			text, err := os.ReadFile(filepath.Join(vectorDirectory, vector.file))
 			if err != nil {
 				t.Fatal(err)
 			}
-			parsed, err := document.Parse(text)
+			var encoded []byte
+			switch {
+			case vector.check == "document":
+				var parsed *document.Document
+				parsed, err = document.Parse(text)
+				if err == nil {
+					encoded = rebuild(parsed)
+				}
+			case strings.HasPrefix(vector.check, "hex:"):
+				length, convertErr := strconv.Atoi(strings.TrimPrefix(vector.check, "hex:"))
+				if convertErr != nil {
+					t.Fatalf("malformed check %s", vector.check)
+				}
+				var octets []byte
+				octets, err = document.DecodeHexValue(string(text), length)
+				encoded = []byte(hex.EncodeToString(octets))
+			case vector.check == "decimal":
+				var value uint64
+				value, err = document.DecodeDecimalValue(string(text))
+				encoded = strconv.AppendUint(nil, value, 10)
+			default:
+				t.Fatalf("unknown check %s", vector.check)
+			}
 			if reported := resultName(err); reported != vector.result {
 				t.Fatalf("expected %s, reported %s", vector.result, reported)
 			}
-			if err == nil && !bytes.Equal(rebuild(parsed), text) {
-				t.Fatal("the parsed fields do not rebuild the document")
+			if err == nil && !bytes.Equal(encoded, text) {
+				t.Fatal("the decoded result does not encode the input again")
 			}
 		})
 	}

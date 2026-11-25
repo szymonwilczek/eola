@@ -35,9 +35,10 @@ informative:
 
 This document specifies the text framing shared by every End-Of-Life
 Attestation (EOLA) document: a type line followed by named fields, in a
-strict subset of ASCII, with fixed size limits. It defines the order in
-which a receiver checks a document and the error code it reports for
-each rule a document breaks.
+strict subset of ASCII, with fixed size limits, and the hexadecimal and
+decimal encodings of field values. It defines the order in which a
+receiver checks a document and a value, and the error code it reports
+for each rule they break.
 
 --- middle
 
@@ -55,9 +56,10 @@ an ordinary text editor after the publisher of a game has stopped
 operating it.
 
 This document defines the framing of a document, its limits, the
-processing rules a receiver applies, and their error codes. The document
-types, their fields, and the order of those fields are defined by the
-EOLA document that specifies each type.
+encodings of field values, the processing rules a receiver applies, and
+their error codes. The document types, their fields, the order of those
+fields, and the encoding of each value are defined by the EOLA document
+that specifies each type.
 
 # Conventions and Terminology
 
@@ -194,14 +196,61 @@ The order of the rules makes the error code of a document independent of
 the implementation that reports it: every receiver reports the same
 code for the same bytes, and the test vectors of EOLA check that code.
 
+# Field Values {#values}
+
+The specification of a document type gives the encoding of each of its
+field values: text, a hexadecimal value of a stated number of octets, or
+a decimal value.
+
+~~~ abnf
+hex-value     = 1*hex-octet
+hex-octet     = 2( DIGIT / %x61-66 )
+
+decimal-value = "0" / ( %x31-39 *DIGIT )
+~~~
+
+A hexadecimal value encodes each octet as two lowercase hexadecimal
+digits, the most significant first. A field of n octets holds exactly 2n
+digits. Uppercase digits, a prefix such as "0x", and separators are not
+part of the encoding.
+
+A decimal value encodes an unsigned integer from 0 to 2^64-1,
+18446744073709551615, with no sign and no leading zero.
+
+Each value has exactly one encoding, so a value read from a document and
+encoded again gives the octets of the document.
+
+## Value Processing Rules
+
+A receiver MUST check a field value against the rules of its encoding,
+in the order given, and MUST reject the document at the first rule the
+value breaks, with the error code of that rule. The receiver checks the
+values after the document passes rules 1 to 12, in the order of the
+fields.
+
+For a hexadecimal value of n octets:
+
+{: start="13"}
+13. The value matches the rule hex-value. Otherwise: value_hex.
+14. The value holds exactly 2n octets. Otherwise: value_hex_length.
+
+For a decimal value:
+
+{: start="15"}
+15. The value matches the rule decimal-value. Otherwise:
+    value_decimal.
+16. The integer it encodes is at most 18446744073709551615. Otherwise:
+    value_decimal_range.
+
 # Error Codes {#error-codes}
 
 An error code has a name, used in the specifications and test vectors,
 and a number, used by implementations that report codes as integers.
-{{error-code-table}} lists the codes of this document. The numbers 1 to
-99 are left to each implementation for errors that do not depend on the
-document, such as an invalid argument to a function. The number 0 means
-that no rule is broken.
+{{error-code-table}} lists the codes of this document: the numbers from
+101 report the framing, and those from 201 report field values. The
+numbers 1 to 99 are left to each implementation for errors that do not
+depend on the document, such as an invalid argument to a function. The
+number 0 means that no rule is broken.
 
 | Number | Name                     | Rule |
 |--------|--------------------------|------|
@@ -217,7 +266,11 @@ that no rule is broken.
 | 110    | field_name               | 10   |
 | 111    | field_no_value           | 11   |
 | 112    | field_separator          | 12   |
-{: #error-code-table title="Framing Error Codes"}
+| 201    | value_hex                | 13   |
+| 202    | value_hex_length         | 14   |
+| 203    | value_decimal            | 15   |
+| 204    | value_decimal_range      | 16   |
+{: #error-code-table title="Error Codes"}
 
 # Security Considerations
 
@@ -234,6 +287,12 @@ those that were signed, and two receivers that repair differently reach
 different results for the same document. The processing rules forbid
 any such repair.
 
+A value with more than one encoding would let a party change the octets
+of a signed document without changing what a receiver reads from it,
+for example by writing a hexadecimal value in uppercase. The single
+encoding of each value rules this out, and a receiver that accepts a
+document reads the same values as any other receiver.
+
 Rejecting control octets and octets above %x7E keeps a document free of
 characters that display differently in different editors, so a person
 who checks a document by reading it sees every octet the receiver
@@ -249,4 +308,5 @@ This document has no IANA actions.
 {:numbered="false"}
 
 draft-wilczek-eola-signed-document-00:
-: Initial version: framing, limits, processing rules, and error codes.
+: Initial version: framing, limits, value encodings, processing rules,
+  and error codes.

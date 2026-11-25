@@ -27,8 +27,9 @@ MANIFEST_HEADER = """\
 # edit the script, not this file.
 #
 # Each line: <file> <check> <result>. The check "document" parses the file
-# as a document; the result is "ok" or the name of the error code of the
-# first processing rule the file breaks.
+# as a document, "hex:<n>" decodes it as a hexadecimal value of n octets,
+# and "decimal" as a decimal value. The result is "ok" or the name of the
+# error code of the first processing rule the file breaks.
 """
 
 
@@ -282,17 +283,84 @@ VECTORS = [
 ]
 
 
+# Field values: (name, check, value, result). The check "hex:<n>" decodes
+# the file as a hexadecimal value of n octets, "decimal" as a decimal value.
+VALUE_VECTORS = [
+    ("value-hex-valid-one-octet", "hex:1", b"00", "ok"),
+    ("value-hex-valid-four-octets", "hex:4", b"9f86d081", "ok"),
+    (
+        "value-hex-valid-thirty-two-octets",
+        "hex:32",
+        b"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+        "ok",
+    ),
+    ("value-hex-valid-all-digits", "hex:8", b"0123456789abcdef", "ok"),
+    ("value-hex-uppercase", "hex:4", b"9F86D081", "value_hex"),
+    ("value-hex-odd-length", "hex:4", b"9f86d08", "value_hex"),
+    ("value-hex-non-digit", "hex:4", b"9f86d0g1", "value_hex"),
+    ("value-hex-prefix", "hex:4", b"0x9f86d0", "value_hex"),
+    ("value-hex-separator", "hex:4", b"9f86 d081", "value_hex"),
+    ("value-hex-empty", "hex:4", b"", "value_hex"),
+    ("value-hex-uppercase-wrong-length", "hex:4", b"9F86", "value_hex"),
+    ("value-hex-short", "hex:4", b"9f86d0", "value_hex_length"),
+    ("value-hex-long", "hex:4", b"9f86d08100", "value_hex_length"),
+    ("value-decimal-valid-zero", "decimal", b"0", "ok"),
+    ("value-decimal-valid", "decimal", b"42", "ok"),
+    (
+        "value-decimal-valid-maximum",
+        "decimal",
+        b"18446744073709551615",
+        "ok",
+    ),
+    ("value-decimal-leading-zero", "decimal", b"007", "value_decimal"),
+    ("value-decimal-zeros", "decimal", b"00", "value_decimal"),
+    ("value-decimal-sign", "decimal", b"-1", "value_decimal"),
+    ("value-decimal-plus", "decimal", b"+1", "value_decimal"),
+    ("value-decimal-separator", "decimal", b"1 000", "value_decimal"),
+    ("value-decimal-exponent", "decimal", b"1e3", "value_decimal"),
+    ("value-decimal-hex", "decimal", b"0x10", "value_decimal"),
+    ("value-decimal-empty", "decimal", b"", "value_decimal"),
+    (
+        "value-decimal-leading-zero-over-range",
+        "decimal",
+        b"018446744073709551616",
+        "value_decimal",
+    ),
+    (
+        "value-decimal-over-range",
+        "decimal",
+        b"18446744073709551616",
+        "value_decimal_range",
+    ),
+    (
+        "value-decimal-over-range-twenty-digits",
+        "decimal",
+        b"99999999999999999999",
+        "value_decimal_range",
+    ),
+    (
+        "value-decimal-over-range-twenty-one-digits",
+        "decimal",
+        b"100000000000000000000",
+        "value_decimal_range",
+    ),
+]
+
+
 def expected_files():
     """Return the file names and contents this script writes."""
     files = {}
     manifest = [MANIFEST_HEADER]
     names = set()
-    for name, content, result in VECTORS:
+    vectors = [
+        (name, "document", content, result) for name, content, result in VECTORS
+    ]
+    for name, check, content, result in vectors + VALUE_VECTORS:
         assert name not in names, name
         names.add(name)
         file_name = name + ".eola"
         files[file_name] = content
-        manifest.append(f"{file_name} document {result}\n")
+        manifest.append(f"{file_name} {check} {result}\n")
     files["vectors.txt"] = "".join(manifest).encode()
     return files
 

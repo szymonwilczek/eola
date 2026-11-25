@@ -26,9 +26,12 @@ Layout
 
       <file> <check> <result>
 
-   The check ``document`` parses the file as a document. The result is
-   ``ok``, or the name of the error code of the first processing rule the
-   file breaks.
+   The check ``document`` parses the file as a document, ``hex:<n>``
+   decodes it as a hexadecimal value of *n* octets, and ``decimal`` as a
+   decimal value. The result is ``ok``, or the name of the error code of
+   the first processing rule the file breaks. For a valid file, both
+   implementations also write the parsed document or the decoded value
+   back in text form and compare it with the file.
 
 ``vectors/generate.py``
    The generator. It writes every vector and every manifest, so the
@@ -60,6 +63,7 @@ Grammar check
 blocks of each draft as one grammar and fails when the grammar references a
 rule it does not define, other than the core rules of RFC 5234. It then
 parses every vector of the draft with the grammar: a valid vector matches,
-and an invalid vector does not. A vector whose error code comes from a size
-limit is skipped, since the grammar states no limits. The ABNF parser is
+and an invalid vector does not. A vector whose error code comes from a rule
+the grammar does not state, a size limit, the length of a hexadecimal
+value or the range of a decimal value, is skipped. The ABNF parser is
 pinned in ``spec/requirements.txt``.

@@ -6,8 +6,9 @@
 # edit the script, not this file.
 #
 # Each line: <file> <check> <result>. The check "document" parses the file
-# as a document; the result is "ok" or the name of the error code of the
-# first processing rule the file breaks.
+# as a document, "hex:<n>" decodes it as a hexadecimal value of n octets,
+# and "decimal" as a decimal value. The result is "ok" or the name of the
+# error code of the first processing rule the file breaks.
 valid-type-line-only.eola document ok
 valid-fields.eola document ok
 valid-repeated-field.eola document ok
@@ -66,3 +67,31 @@ field-no-value.eola document field_no_value
 field-no-value-after-valid-field.eola document field_no_value
 field-separator-two-spaces.eola document field_separator
 field-separator-only-spaces.eola document field_separator
+value-hex-valid-one-octet.eola hex:1 ok
+value-hex-valid-four-octets.eola hex:4 ok
+value-hex-valid-thirty-two-octets.eola hex:32 ok
+value-hex-valid-all-digits.eola hex:8 ok
+value-hex-uppercase.eola hex:4 value_hex
+value-hex-odd-length.eola hex:4 value_hex
+value-hex-non-digit.eola hex:4 value_hex
+value-hex-prefix.eola hex:4 value_hex
+value-hex-separator.eola hex:4 value_hex
+value-hex-empty.eola hex:4 value_hex
+value-hex-uppercase-wrong-length.eola hex:4 value_hex
+value-hex-short.eola hex:4 value_hex_length
+value-hex-long.eola hex:4 value_hex_length
+value-decimal-valid-zero.eola decimal ok
+value-decimal-valid.eola decimal ok
+value-decimal-valid-maximum.eola decimal ok
+value-decimal-leading-zero.eola decimal value_decimal
+value-decimal-zeros.eola decimal value_decimal
+value-decimal-sign.eola decimal value_decimal
+value-decimal-plus.eola decimal value_decimal
+value-decimal-separator.eola decimal value_decimal
+value-decimal-exponent.eola decimal value_decimal
+value-decimal-hex.eola decimal value_decimal
+value-decimal-empty.eola decimal value_decimal
+value-decimal-leading-zero-over-range.eola decimal value_decimal
+value-decimal-over-range.eola decimal value_decimal_range
+value-decimal-over-range-twenty-digits.eola decimal value_decimal_range
+value-decimal-over-range-twenty-one-digits.eola decimal value_decimal_range

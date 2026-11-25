@@ -103,7 +103,11 @@ A program includes the headers under ``libeola/include/`` and links
            printf("%.*s = %.*s\n", (int)field.name_length, field.name,
                   (int)field.value_length, field.value);
 
-Every function returns an ``enum eola_status``. The codes from 100 up are
+A field value is decoded with ``eola_hex_value_decode()`` or
+``eola_decimal_value_decode()``, as the specification of the document
+type gives its encoding. Every function other than
+``eola_document_next_field()`` and ``eola_status_name()`` returns an
+``enum eola_status``. The codes from 100 up are
 the error codes of the specification, with its numbers, and
 ``eola_status_name()`` returns the name the specification gives them.
 
@@ -127,6 +131,11 @@ Limits
 .. c:macro:: EOLA_LINE_MAX_LENGTH
 
    The largest line, 8192 octets, its LF included.
+
+Field values
+============
+
+.. kernel-doc:: libeola/include/eola/value.h
 
 Files
 =====

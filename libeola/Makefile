@@ -31,7 +31,7 @@ EOLA_CFLAGS := -std=c11 $(WARNINGS) -Iinclude -MMD -MP
 SANITIZE_FLAGS := -fsanitize=address,undefined -fno-sanitize-recover=all \
 	-fno-omit-frame-pointer
 
-LIBRARY_SOURCES := src/document.c src/status.c
+LIBRARY_SOURCES := src/document.c src/status.c src/value.c
 TEST_PROGRAMS := vectors arguments
 C_SOURCES := $(LIBRARY_SOURCES) $(TEST_PROGRAMS:%=tests/%.c) \
 	$(wildcard include/eola/*.h)

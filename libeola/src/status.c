@@ -35,6 +35,14 @@ const char *eola_status_name(enum eola_status status)
 		return "field_no_value";
 	case EOLA_STATUS_FIELD_SEPARATOR:
 		return "field_separator";
+	case EOLA_STATUS_VALUE_HEX:
+		return "value_hex";
+	case EOLA_STATUS_VALUE_HEX_LENGTH:
+		return "value_hex_length";
+	case EOLA_STATUS_VALUE_DECIMAL:
+		return "value_decimal";
+	case EOLA_STATUS_VALUE_DECIMAL_RANGE:
+		return "value_decimal_range";
 	}
 	return NULL;
 }
