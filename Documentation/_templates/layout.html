@@ -1,0 +1,39 @@
+{# SPDX-License-Identifier: MIT #}
+{# Copyright (C) 2026 Szymon Wilczek #}
+{#
+   The development channel is kept out of search results and carries a
+   banner on every page; both channels link to each other under the sidebar
+   title. eola_channel, eola_stable_url and eola_dev_url come from
+   html_context in conf.py.
+#}
+{% extends "!layout.html" %}
+
+{%- block extrahead %}
+  {{ super() }}
+  {%- if eola_channel == 'dev' %}
+  <meta name="robots" content="noindex, follow">
+  {%- endif %}
+{% endblock %}
+
+{%- block sidebartitle %}
+  {{ super() }}
+  <div style="margin-top: 0.5em; font-size: 90%; color: rgba(255, 255, 255, 0.85);">
+    {%- if eola_channel == 'dev' %}
+    development &middot; <a href="{{ eola_stable_url }}" style="color: #fff; text-decoration: underline;">switch to stable</a>
+    {%- else %}
+    stable &middot; <a href="{{ eola_dev_url }}" style="color: #fff; text-decoration: underline;">switch to development</a>
+    {%- endif %}
+  </div>
+{% endblock %}
+
+{%- block document %}
+  {%- if eola_channel == 'dev' %}
+  <div class="admonition warning">
+    <p class="admonition-title">Development documentation</p>
+    <p>This documents the eola-next integration branch. The documentation
+      of the released code is the <a href="{{ eola_stable_url }}">stable
+      channel</a>.</p>
+  </div>
+  {%- endif %}
+  {{ super() }}
+{% endblock %}
