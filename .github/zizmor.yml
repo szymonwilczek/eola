@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+#
+# Actions maintained by GitHub (actions/* and github/*) are referenced by
+# version tag, so that a reviewer reads the version and Dependabot tracks
+# it. Every other action is pinned to a full commit hash.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "actions/*": ref-pin
+        "github/*": ref-pin
+        "*": hash-pin
