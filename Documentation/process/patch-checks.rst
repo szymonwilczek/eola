@@ -117,6 +117,10 @@ documentation
    ``linkcheck`` result is reported without failing the job, and the built
    HTML is kept as a workflow artifact for 14 days.
 
+specification
+   ``make -C spec``, with xml2rfc warnings as errors. The rendered drafts
+   are kept as a workflow artifact for 14 days.
+
 shell scripts
    ``shellcheck -x`` on every file under ``scripts/``.
 

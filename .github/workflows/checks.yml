@@ -80,6 +80,38 @@ jobs:
           path: Documentation/_build/html
           retention-days: 14
 
+  specification:
+    name: specification
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install the specification toolchain
+        run: |
+          pip install -r spec/requirements.txt
+          sudo gem install --no-document kramdown-rfc -v 1.7.43
+
+      - name: Render the drafts, xml2rfc warnings as errors
+        run: make -C spec
+
+      - name: Upload the rendered drafts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: specification
+          path: |
+            spec/build/*.html
+            spec/build/*.txt
+          retention-days: 14
+
   scripts:
     name: shell scripts
     runs-on: ubuntu-24.04
