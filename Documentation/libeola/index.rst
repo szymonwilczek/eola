@@ -17,7 +17,8 @@ Building and testing
 
 libeola needs the headers and the library of libcrypto, found with
 ``pkg-config``; on Debian and Ubuntu they are in ``libssl-dev`` and on
-Fedora in ``openssl-devel``.
+Fedora in ``openssl-devel``. The checks run against OpenSSL 3.0 of Ubuntu
+24.04 and against OpenSSL 3.5, 4.0 and 4.1 built from their releases.
 
 .. code-block:: console
 
