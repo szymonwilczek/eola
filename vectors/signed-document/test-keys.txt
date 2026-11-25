@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: CC-BY-4.0
+# Copyright (C) 2026 Szymon Wilczek
+#
+# Ed25519 test keys of the signed vectors of
+# draft-wilczek-eola-signed-document. Their private keys are public: they
+# sign nothing but test vectors. Written by vectors/generate.py; edit the
+# script, not this file.
+#
+# Each line: <name> <seed> <public key>, in hexadecimal. The seed is the
+# private key of RFC 8032, Section 5.1.5.
+publisher f6160f21f038ab8e705149ed3296a3b790f43b70babccec0d0f27bbe4467b1cd bf6c1e48f20652b332faf9615acfe7053c3b2466335046ff1e4abf847e470b09
+other 4612f8c155a1ba0c23bcfad7e59689da7eb553b59583adfbe58c0776356bbbe0 2188a545de5906e3d1c741037c19321e2d7c281716cc28d0e83e0ad21235e0a0

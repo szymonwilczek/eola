@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+#
+# Renderer for the specification drafts, and the ABNF parser of
+# check-grammar.py. kramdown-rfc is a Ruby gem and is installed
+# separately: gem install kramdown-rfc -v 1.7.43
+#
+# Install with: pip install -r spec/requirements.txt
+xml2rfc==3.35.0
+abnf==2.9.1

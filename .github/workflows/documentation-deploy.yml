@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+
+name: Deploy documentation
+
+# One GitHub Pages site carries two channels built in one artifact,
+# so a push to either branch redeploys both and neither overwrites
+# the other:
+#
+#   stable       built from main, served at the site root
+#   development  built from eola-next, served under /eola-next/
+#
+# Each channel carries the specification drafts of its branch under spec/.
+
+on:
+  push:
+    branches: [main, eola-next]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build site
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout stable (main)
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          path: stable
+          persist-credentials: false
+
+      - name: Checkout development (eola-next)
+        uses: actions/checkout@v7
+        with:
+          ref: eola-next
+          path: development
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install the documentation and specification toolchains
+        run: |
+          pip install -r development/Documentation/requirements.txt
+          pip install -r development/spec/requirements.txt
+          sudo gem install --no-document kramdown-rfc -v 1.7.43
+
+      - name: Build the development channel
+        run: |
+          EOLA_DOCS_CHANNEL=dev \
+          EOLA_DOCS_VERSION="eola-next ($(git -C development rev-parse --short HEAD))" \
+            make -C development/Documentation html
+          make -C development/spec
+
+      # main carries released code only and has no documentation tree until
+      # the first release; the site root then links to the development
+      # channel.
+      - name: Build the stable channel
+        run: |
+          if [ -f stable/Documentation/conf.py ]; then
+            EOLA_DOCS_CHANNEL=stable \
+            EOLA_DOCS_VERSION="main ($(git -C stable rev-parse --short HEAD))" \
+              make -C stable/Documentation html
+          fi
+          if [ -f stable/spec/Makefile ]; then
+            make -C stable/spec
+          fi
+
+      - name: Assemble the site
+        run: |
+          publish_spec() {
+            mkdir -p "$2/spec/owfa"
+            cp "$1"/spec/build/*.html "$1"/spec/build/*.txt "$2/spec/"
+            cp "$1"/spec/owfa/*.txt "$2/spec/owfa/"
+          }
+          mkdir -p site/eola-next
+          cp -r development/Documentation/_build/html/. site/eola-next/
+          publish_spec development site/eola-next
+          if [ -d stable/Documentation/_build/html ]; then
+            cp -r stable/Documentation/_build/html/. site/
+          else
+            cat >site/index.html <<'HTML'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+          <meta charset="utf-8">
+          <title>EOLA</title>
+          <meta http-equiv="refresh" content="0; url=eola-next/">
+          </head>
+          <body>
+          <p>No release has been made yet. See the
+          <a href="eola-next/">development documentation</a>.</p>
+          </body>
+          </html>
+          HTML
+          fi
+          if [ -d stable/spec/build ]; then
+            publish_spec stable site
+          fi
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    name: deploy to Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write # publish the artifact to Pages
+      id-token: write # the OIDC token deploy-pages presents to Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

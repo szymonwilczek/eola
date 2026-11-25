@@ -1,0 +1,283 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+
+name: Checks
+
+on:
+  push:
+    branches: [eola-next, main]
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+# A newer push to a pull request supersedes its running checks;
+# pushes to the integration and release branches run to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  patch:
+    name: patch checks
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The runner holds no contributor keys, so signatures are verified
+      # through the GitHub API against the keys on each author's account.
+      - name: Check the pull request commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PATCH_BRANCH: ${{ github.head_ref }}
+          PATCH_TITLE: ${{ github.event.pull_request.title }}
+          PATCH_SIGNATURES: github
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/check-patch "$BASE_SHA" "$HEAD_SHA"
+
+  documentation:
+    name: documentation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install the documentation toolchain
+        run: pip install -r Documentation/requirements.txt
+
+      - name: Lint reStructuredText
+        run: make -C Documentation lint
+
+      - name: Build HTML, warnings as errors
+        run: make -C Documentation html
+
+      # External sites go down and come back; a broken external link is
+      # reported without failing the job. Internal references are checked
+      # by the strict build.
+      - name: Check links
+        run: make -C Documentation linkcheck
+        continue-on-error: true
+
+      - name: Upload the built HTML
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: documentation-html
+          path: Documentation/_build/html
+          retention-days: 14
+
+  specification:
+    name: specification
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install the specification toolchain
+        run: |
+          pip install -r spec/requirements.txt
+          sudo gem install --no-document kramdown-rfc -v 1.7.43
+
+      - name: Render the drafts, xml2rfc warnings as errors
+        run: make -C spec
+
+      - name: Check the ABNF against itself and the test vectors
+        run: make -C spec check
+
+      - name: Check the test vectors against their generator
+        run: python3 vectors/generate.py --check
+
+      - name: Upload the rendered drafts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: specification
+          path: |
+            spec/build/*.html
+            spec/build/*.txt
+          retention-days: 14
+
+  libeola:
+    name: libeola (${{ matrix.compiler }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install libcrypto and valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config valgrind
+
+      - name: Run the tests and the test vectors
+        run: make -C libeola check CC=${{ matrix.compiler }}
+
+      - name: Run them with AddressSanitizer and UndefinedBehaviorSanitizer
+        run: make -C libeola check-sanitize CC=${{ matrix.compiler }}
+
+      - name: Run them under valgrind
+        run: make -C libeola check-valgrind CC=${{ matrix.compiler }}
+
+  # Ubuntu 24.04 has OpenSSL 3.0. The supported releases are built from
+  # their tarballs, which the SHA-256 of each release pins, and the tests
+  # are linked to the build with an rpath, so that no step falls back to
+  # the libcrypto of the system.
+  libeola-openssl:
+    name: libeola (OpenSSL ${{ matrix.openssl.version }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        openssl:
+          - version: 3.5.9
+            sha256: 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
+          - version: 4.0.3
+            sha256: 325b5c806167c13b40b1ffeadfe0248197c00eccc4cf123ec1e28d2d2fd216d9
+          - version: 4.1.0
+            sha256: 50c17baf54cb008f6ce42d50deb4b28050a1aad711636cabd4b241c7e90cc2fd
+    env:
+      OPENSSL_VERSION: ${{ matrix.openssl.version }}
+      OPENSSL_SHA256: ${{ matrix.openssl.sha256 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind
+
+      - name: Build OpenSSL
+        run: |
+          tarball="$RUNNER_TEMP/openssl.tar.gz"
+          curl -fsSL -o "$tarball" "https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL_VERSION/openssl-$OPENSSL_VERSION.tar.gz"
+          echo "$OPENSSL_SHA256  $tarball" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/openssl-source"
+          tar -xzf "$tarball" -C "$RUNNER_TEMP/openssl-source" --strip-components=1
+          cd "$RUNNER_TEMP/openssl-source"
+          ./Configure --prefix="$RUNNER_TEMP/openssl" --libdir=lib no-docs no-tests
+          make -j"$(nproc)" build_sw
+          make install_sw
+          prefix="$RUNNER_TEMP/openssl"
+          {
+            echo "OPENSSL_CFLAGS=-I$prefix/include"
+            echo "OPENSSL_LIBS=-L$prefix/lib -Wl,-rpath,$prefix/lib -lcrypto"
+          } >> "$GITHUB_ENV"
+
+      - name: Run the tests and the test vectors
+        run: make -C libeola check
+
+      - name: Check that the tests use the OpenSSL that was built
+        run: |
+          ldd libeola/build/release/tests/vectors | tee "$RUNNER_TEMP/ldd"
+          grep -F "$RUNNER_TEMP/openssl/lib/libcrypto.so" "$RUNNER_TEMP/ldd"
+
+      - name: Run them with AddressSanitizer and UndefinedBehaviorSanitizer
+        run: make -C libeola check-sanitize
+
+      - name: Run them under valgrind
+        run: make -C libeola check-valgrind
+
+  libeola-format:
+    name: libeola formatting
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install clang-format
+        run: pip install -r libeola/requirements.txt
+
+      - name: Check the formatting of the C sources
+        run: make -C libeola format-check
+
+  go:
+    name: Go
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache: false
+
+      - name: Run the tests and the test vectors
+        working-directory: go
+        run: go test -race ./...
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+
+      - name: Run golangci-lint
+        working-directory: go
+        run: '"$(go env GOPATH)/bin/golangci-lint" run ./...'
+
+  scripts:
+    name: shell scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run shellcheck
+        run: git ls-files -z 'scripts/*' | xargs -0 shellcheck -x
+
+  workflows:
+    name: workflow security
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install zizmor
+        run: pip install zizmor==1.32.0
+
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor .github/workflows

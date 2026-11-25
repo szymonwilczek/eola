@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+#
+# Rewrap the commit messages in base..head without touching any file tree.
+
+set -euo pipefail
+
+repository_root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [[ -z ${repository_root:-} ]]; then
+    printf 'ERROR: run this script from inside the EOLA git repository.\n' >&2
+    exit 2
+fi
+cd "$repository_root"
+
+# shellcheck source=scripts/lib/commit-limits.sh
+. scripts/lib/commit-limits.sh
+
+usage() {
+    cat <<'USAGE'
+usage: scripts/format-patch [<base-commit> [<head-commit>]]
+
+Rewrites the commits in base..head so that their messages pass the message
+checks of scripts/check-patch. Only messages change; every commit keeps its
+tree, author, committer and dates, and is signed again when
+commit.gpgsign is true.
+
+The rewrite:
+  - removes trailing whitespace and trailing blank lines,
+  - keeps one blank line before the first Signed-off-by trailer,
+  - wraps body paragraphs to 75 columns; indented lines, trailers and
+    lines carrying a URL are left as written.
+
+If base is omitted, the script uses the upstream merge-base,
+origin/eola-next, or eola-next, in that order. Head defaults to HEAD and
+must be the tip of the current branch. The previous tip is kept on a
+backup branch.
+USAGE
+}
+
+die() {
+    printf 'ERROR: %s\n' "$*" >&2
+    exit 2
+}
+
+resolve_base() {
+    local upstream
+
+    if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null); then
+        git merge-base HEAD "$upstream"
+        return
+    fi
+    if git rev-parse --verify --quiet origin/eola-next >/dev/null; then
+        git merge-base HEAD origin/eola-next
+        return
+    fi
+    if git rev-parse --verify --quiet eola-next >/dev/null; then
+        git merge-base HEAD eola-next
+        return
+    fi
+    return 1
+}
+
+normalize_message() {
+    perl -0e '
+        use strict;
+        use warnings;
+
+        my $text = do { local $/; <> };
+        $text =~ s/[ \t]+$//mg;
+
+        my @input_lines = split /\n/, $text, -1;
+        pop @input_lines while @input_lines && $input_lines[-1] eq "";
+
+        my @output_lines;
+        my @paragraph;
+        my $in_trailer_block = 0;
+        my $exempt = qr/$ENV{COMMIT_LINE_EXEMPT}/;
+
+        sub flush_paragraph {
+            return unless @paragraph;
+            my $line = "";
+
+            for my $word (map { split /[ \t]+/ } @paragraph) {
+                next if $word eq "";
+                if ($line eq "") {
+                    $line = $word;
+                } elsif (length($line) + 1 + length($word) <= $ENV{COMMIT_COLUMNS}) {
+                    $line .= " $word";
+                } else {
+                    push @output_lines, $line;
+                    $line = $word;
+                }
+            }
+            push @output_lines, $line if $line ne "";
+            @paragraph = ();
+        }
+
+        push @output_lines, shift @input_lines if @input_lines;
+        for my $line (@input_lines) {
+            if ($line eq "") {
+                flush_paragraph();
+                push @output_lines, "" if $output_lines[-1] ne "";
+                $in_trailer_block = 0;
+            } elsif ($line =~ /^Signed-off-by:\s/) {
+                flush_paragraph();
+                if (!$in_trailer_block) {
+                    pop @output_lines while $output_lines[-1] eq "";
+                    push @output_lines, "";
+                }
+                push @output_lines, $line;
+                $in_trailer_block = 1;
+            } elsif ($line =~ /^[A-Za-z0-9-]+-by:\s/ || $line =~ $exempt) {
+                flush_paragraph();
+                push @output_lines, $line;
+            } else {
+                push @paragraph, $line;
+                $in_trailer_block = 0;
+            }
+        }
+
+        flush_paragraph();
+        pop @output_lines while @output_lines && $output_lines[-1] eq "";
+        print join("\n", @output_lines), "\n";
+    ' "$1" >"$2"
+}
+
+write_commit_message() {
+    git cat-file commit "$1" | sed '1,/^$/d' >"$2"
+}
+
+main() {
+    local base=""
+    local head="HEAD"
+    local branch head_commit backup_branch temporary_directory
+    local commit tree new_parent
+    local old_message new_message
+    local message_changed=0
+    local rewritten_count=0
+    local -a commits sign_arguments=()
+
+    if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
+        usage
+        return 0
+    fi
+    if (($# > 2)); then
+        usage
+        return 2
+    fi
+
+    if (($# >= 1)); then
+        base=$1
+    else
+        base=$(resolve_base) || die "cannot select a base commit; pass it explicitly"
+    fi
+    if (($# == 2)); then
+        head=$2
+    fi
+
+    git cat-file -e "$base^{commit}" 2>/dev/null || die "base commit not found: $base"
+    git cat-file -e "$head^{commit}" 2>/dev/null || die "head commit not found: $head"
+
+    branch=$(git symbolic-ref --quiet --short HEAD) || die "detached HEAD is not supported"
+    head_commit=$(git rev-parse "$head")
+    [[ $(git rev-parse HEAD) == "$head_commit" ]] || die "head must be the current branch tip"
+
+    git diff --quiet || die "working tree has unstaged changes"
+    git diff --cached --quiet || die "index has staged changes"
+
+    mapfile -t commits < <(git rev-list --reverse "$base..$head")
+    ((${#commits[@]} > 0)) || die "no commits in the selected range"
+    if git rev-list --merges "$base..$head" | grep -q .; then
+        die "merge commits cannot be rewritten by this script"
+    fi
+
+    temporary_directory=$(mktemp -d)
+    # shellcheck disable=SC2064
+    trap "rm -rf -- '$temporary_directory'" EXIT
+
+    if [[ $(git config --bool commit.gpgsign || true) == true ]]; then
+        sign_arguments=(-S)
+    fi
+
+    new_parent=$(git rev-parse "$base")
+    for commit in "${commits[@]}"; do
+        old_message="$temporary_directory/$commit.old"
+        new_message="$temporary_directory/$commit.new"
+        write_commit_message "$commit" "$old_message"
+        normalize_message "$old_message" "$new_message"
+
+        # Commits below the first changed message keep their hashes.
+        if ((message_changed == 0)) && cmp -s "$old_message" "$new_message"; then
+            new_parent=$commit
+            continue
+        fi
+        message_changed=1
+
+        tree=$(git show -s --format=%T "$commit")
+        new_parent=$(
+            GIT_AUTHOR_NAME=$(git show -s --format=%an "$commit") \
+            GIT_AUTHOR_EMAIL=$(git show -s --format=%ae "$commit") \
+            GIT_AUTHOR_DATE=$(git show -s --format=%aI "$commit") \
+            GIT_COMMITTER_NAME=$(git show -s --format=%cn "$commit") \
+            GIT_COMMITTER_EMAIL=$(git show -s --format=%ce "$commit") \
+            GIT_COMMITTER_DATE=$(git show -s --format=%cI "$commit") \
+                git commit-tree "${sign_arguments[@]}" "$tree" -p "$new_parent" -F "$new_message"
+        )
+        rewritten_count=$((rewritten_count + 1))
+    done
+
+    if ((message_changed == 0)); then
+        printf 'No commit message needs rewriting.\n'
+        return 0
+    fi
+
+    backup_branch="backup-${branch//\//-}-before-format-patch-$(date -u +%Y%m%d%H%M%S)"
+    git branch "$backup_branch" "$head_commit"
+    git update-ref "refs/heads/$branch" "$new_parent" "$head_commit"
+    printf 'Rewrote %d commit(s) on %s.\n' "$rewritten_count" "$branch"
+    printf 'Backup branch: %s\n' "$backup_branch"
+    printf 'Review every rewritten message before the branch is offered for review.\n'
+}
+
+main "$@"
