@@ -13,6 +13,14 @@ players and community servers continue without it: a heartbeat announcing
 whether the official service is alive, a list of servers, and the records
 players carry between them.
 
+Documentation
+=============
+
+The documentation is under `Documentation/ <Documentation/index.rst>`_ and
+is built with ``make -C Documentation html``. A patch is contributed as
+described in `CONTRIBUTING.rst <CONTRIBUTING.rst>`_, and a vulnerability is
+reported as described in `SECURITY.md <SECURITY.md>`_.
+
 Licensing
 =========
 

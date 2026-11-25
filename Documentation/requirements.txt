@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+#
+# Toolchain for building and checking the documentation.
+#
+# Install with: pip install -r Documentation/requirements.txt
+sphinx>=8.0,<9.0
+sphinx-rtd-theme>=3.0,<4.0
+sphinx-lint>=1.0,<2.0
