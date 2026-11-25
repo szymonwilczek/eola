@@ -40,7 +40,7 @@ SANITIZE_FLAGS := -fsanitize=address,undefined -fno-sanitize-recover=all \
 LIBRARY_SOURCES := src/document.c src/signature.c src/status.c src/value.c \
 	src/verify.c
 TEST_PROGRAMS := vectors arguments
-FUZZ_TARGETS := document value
+FUZZ_TARGETS := document value verify
 C_SOURCES := $(LIBRARY_SOURCES) $(TEST_PROGRAMS:%=tests/%.c) \
 	$(FUZZ_TARGETS:%=fuzz/%.c) $(wildcard include/eola/*.h src/*.h)
 

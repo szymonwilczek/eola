@@ -222,6 +222,10 @@ jobs:
         working-directory: go
         run: go test ./document -run '^$' -fuzz '^FuzzDecodeValues$' -fuzztime 60s
 
+      - name: Fuzz the Go signature verification
+        working-directory: go
+        run: go test ./document -run '^$' -fuzz '^FuzzVerify$' -fuzztime 60s
+
   scripts:
     name: shell scripts
     runs-on: ubuntu-24.04

@@ -209,7 +209,10 @@ Files
    accepts rebuilds to its input. ``value.c`` checks that every value a
    decoder accepts encodes back to its input, and that the decimal decoder
    agrees with ``strtoull()`` on every input of digits without a leading
-   zero.
+   zero. ``verify.c`` checks that the verifier gives the code of the parser
+   for a document the parser rejects, never reports a failure of OpenSSL,
+   and accepts only a parsed document that ends with the signer and
+   signature fields.
 
 ``libeola/Makefile``
    The build and the test targets.

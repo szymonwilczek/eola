@@ -5,6 +5,7 @@ package document_test
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -103,4 +104,60 @@ func isCanonicalDigits(text string) bool {
 		}
 	}
 	return true
+}
+
+// FuzzVerify checks Verify against Parse and Sign. With an expected type
+// no document has, Verify gives the error of Parse, or
+// document_type_unexpected for a document Parse accepts. With the type
+// and the signer value of the document itself, Verify gives a status.Code,
+// and an accepted document is the one Parse gives. A document Sign
+// returns starts with the input and has two fields more; that it
+// verifies, Sign checks itself.
+func FuzzVerify(f *testing.F) {
+	addVectorSeeds(f)
+	key := ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize))
+	publicKey, _ := key.Public().(ed25519.PublicKey)
+	f.Fuzz(func(t *testing.T, text []byte) {
+		parsed, parseErr := document.Parse(text)
+		_, err := document.Verify(text, "", publicKey)
+		want := parseErr
+		if parseErr == nil {
+			want = status.DocumentTypeUnexpected
+		}
+		if !errors.Is(err, want) {
+			t.Fatalf("Verify with an unexpected type gave %v, Parse %v", err, parseErr)
+		}
+		if parseErr != nil {
+			return
+		}
+
+		signer := make(ed25519.PublicKey, ed25519.PublicKeySize)
+		for _, field := range parsed.Fields {
+			if field.Name == "signer" {
+				if octets, err := document.DecodeHexValue(field.Value, ed25519.PublicKeySize); err == nil {
+					signer = octets
+				}
+			}
+		}
+		verified, err := document.Verify(text, parsed.Type, signer)
+		if !isCode(err) {
+			t.Fatalf("Verify returned an error that is not a status.Code: %v", err)
+		}
+		if err == nil && !bytes.Equal(rebuild(verified), text) {
+			t.Fatal("the verified document does not rebuild to the input")
+		}
+
+		signed, err := document.Sign(text, key)
+		if err != nil {
+			return
+		}
+		reparsed, err := document.Parse(signed)
+		if err != nil {
+			t.Fatalf("a signed document does not parse: %v", err)
+		}
+		if !bytes.HasPrefix(signed, text) ||
+			len(reparsed.Fields) != len(parsed.Fields)+2 {
+			t.Fatal("the signed document does not keep the fields of the input")
+		}
+	})
 }

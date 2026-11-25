@@ -56,12 +56,14 @@ Testing
 
 The tests run the test vectors of ``vectors/``, and sign each valid
 signed vector again with its key of ``test-keys.txt`` to compare the
-result with the vector. Two fuzz tests take the
-vectors as their seed corpus: ``FuzzParse`` checks that every document
-``Parse`` accepts rebuilds to its input, and ``FuzzDecodeValues`` that
-every value a decoder accepts encodes back to its input and that the
-decimal decoder agrees with ``strconv.ParseUint``. Go fuzzes one test per
-run:
+result with the vector. Three fuzz tests take the vectors as their seed
+corpus: ``FuzzParse`` checks that every document ``Parse`` accepts
+rebuilds to its input, ``FuzzDecodeValues`` that every value a decoder
+accepts encodes back to its input and that the decimal decoder agrees
+with ``strconv.ParseUint``, and ``FuzzVerify`` that ``Verify`` gives the
+error of ``Parse`` for a document ``Parse`` rejects and that every
+document ``Sign`` returns starts with its input and has two fields more.
+Go fuzzes one test per run:
 
 .. code-block:: console
 
