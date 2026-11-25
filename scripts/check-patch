@@ -39,7 +39,8 @@ Checks:
   - the branch name within 75 columns, and the pull request title under
     the subject rules when PATCH_TITLE is set,
   - trailing whitespace in patches and commit messages, and trailing blank
-    lines in changed files,
+    lines in changed files, except files with the whitespace attribute
+    unset in .gitattributes,
   - a strict documentation build and sphinx-lint when a reStructuredText
     file or Documentation/ changes (skipped if the tools are missing).
 
@@ -450,12 +451,17 @@ is_text_file() {
     [[ -f $1 ]] && LC_ALL=C grep -Iq '' "$1"
 }
 
+has_whitespace_checks_unset() {
+    [[ $(git check-attr whitespace -- "$1") == *": whitespace: unset" ]]
+}
+
 check_file_endings() {
     local result=0
     local path blank_count
 
     for path in "$@"; do
         is_text_file "$path" || continue
+        has_whitespace_checks_unset "$path" && continue
         blank_count=$(trailing_blank_line_count "$path")
         if ((blank_count > 0)); then
             printf '  %s ends with %d blank line(s)\n' "$path" "$blank_count"

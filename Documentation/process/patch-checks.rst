@@ -72,7 +72,9 @@ patch whitespace
    passes on staged and unstaged changes.
 
 file trailing blank lines
-   No changed text file ends with a blank line.
+   No changed text file ends with a blank line. Files whose ``whitespace``
+   attribute is unset in ``.gitattributes``, such as the test vectors, are
+   skipped here and by ``git diff --check``.
 
 documentation build
    When a reStructuredText file or a file under ``Documentation/`` changes,
@@ -118,8 +120,21 @@ documentation
    HTML is kept as a workflow artifact for 14 days.
 
 specification
-   ``make -C spec``, with xml2rfc warnings as errors. The rendered drafts
-   are kept as a workflow artifact for 14 days.
+   ``make -C spec``, with xml2rfc warnings as errors, ``make -C spec
+   check``, and ``vectors/generate.py --check``. The rendered drafts are
+   kept as a workflow artifact for 14 days.
+
+libeola
+   ``make -C libeola check``, ``check-sanitize`` and ``check-valgrind``,
+   once with gcc and once with clang.
+
+libeola formatting
+   ``make -C libeola format-check`` with the clang-format version of
+   ``libeola/requirements.txt``.
+
+Go
+   ``go test -race ./...`` and ``golangci-lint run ./...`` in ``go/``, with
+   the Go version of ``go/go.mod``.
 
 shell scripts
    ``shellcheck -x`` on every file under ``scripts/``.

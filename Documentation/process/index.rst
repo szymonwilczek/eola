@@ -15,6 +15,8 @@ its own path, set out in :doc:`security-bugs`.
 * :doc:`patch-checks` -- the checks a branch passes before review.
 * :doc:`specification-drafts` -- building, naming and versioning the
   specification drafts.
+* :doc:`test-vectors` -- the files both implementations pass, and how they
+  change.
 * :doc:`security-bugs` -- private reporting and disclosure.
 * :doc:`code-of-conduct` -- conduct in issues, pull requests, reviews and
   security reports.
@@ -26,5 +28,6 @@ its own path, set out in :doc:`security-bugs`.
    branching
    patch-checks
    specification-drafts
+   test-vectors
    security-bugs
    code-of-conduct

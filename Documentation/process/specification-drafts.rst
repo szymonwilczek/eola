@@ -20,7 +20,9 @@ Building
 
 The rendered drafts are written to ``spec/build/``. The first build fetches
 the referenced RFCs and caches them in ``spec/build/.refcache``. A warning
-from xml2rfc fails the build.
+from xml2rfc fails the build. ``make -C spec check`` checks the ABNF of the
+drafts against itself and the test vectors, as described in
+:doc:`test-vectors`.
 
 Names and versions
 ==================
@@ -55,5 +57,8 @@ Files
 ``spec/Makefile``
    The build.
 
+``spec/check-grammar.py``
+   The grammar check.
+
 ``spec/requirements.txt``
-   The pinned xml2rfc version.
+   The pinned versions of xml2rfc and of the ABNF parser.

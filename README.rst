@@ -18,7 +18,9 @@ Documentation
 
 The documentation is under `Documentation/ <Documentation/index.rst>`_ and
 is built with ``make -C Documentation html``. The specification drafts are
-under `spec/ <spec/>`_ and are built with ``make -C spec``. A patch is
+under `spec/ <spec/>`_ and are built with ``make -C spec``. The C library
+is under `libeola/ <libeola/>`_, the Go packages under `go/ <go/>`_, and
+the test vectors both pass under `vectors/ <vectors/>`_. A patch is
 contributed as described in `CONTRIBUTING.rst <CONTRIBUTING.rst>`_, and a
 vulnerability is reported as described in `SECURITY.md <SECURITY.md>`_.
 
@@ -30,4 +32,5 @@ are CC-BY-4.0 (`LICENSE.CC-BY-4.0 <LICENSE.CC-BY-4.0>`_). Every published
 draft of the specification carries an Open Web Foundation Final
 Specification Agreement (OWFa 1.0, Patent Only) signed for that draft.
 Every source file carries an ``SPDX-License-Identifier`` naming the license
-that applies to it.
+that applies to it. A test vector holds exact octets and carries no such
+line; the manifest that lists it carries the line for it.

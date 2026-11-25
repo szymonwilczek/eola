@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: CC-BY-4.0
+# Copyright (C) 2026 Szymon Wilczek
+#
+# Test vectors of draft-wilczek-eola-signed-document. The license line
+# covers this file and every file it lists. Written by vectors/generate.py;
+# edit the script, not this file.
+#
+# Each line: <file> <check> <result>. The check "document" parses the file
+# as a document; the result is "ok" or the name of the error code of the
+# first processing rule the file breaks.
+valid-type-line-only.eola document ok
+valid-fields.eola document ok
+valid-repeated-field.eola document ok
+valid-name-digits-underscore.eola document ok
+valid-one-octet-value.eola document ok
+valid-line-at-limit.eola document ok
+valid-document-at-limit.eola document ok
+document-too-large.eola document document_too_large
+document-too-large-before-character.eola document document_too_large
+document-character-carriage-return.eola document document_character
+document-character-tab.eola document document_character
+document-character-nul.eola document document_character
+document-character-delete.eola document document_character
+document-character-utf8.eola document document_character
+document-character-before-unterminated.eola document document_character
+document-unterminated-empty.eola document document_unterminated
+document-unterminated-last-line.eola document document_unterminated
+document-unterminated-before-line.eola document document_unterminated
+line-too-long-field.eola document line_too_long
+line-too-long-type-line.eola document line_too_long
+line-too-long-before-trailing-space.eola document line_too_long
+line-empty-first.eola document line_empty
+line-empty-between-fields.eola document line_empty
+line-empty-last.eola document line_empty
+line-empty-before-later-line-too-long.eola document line_empty
+line-trailing-space-type-line.eola document line_trailing_space
+line-trailing-space-field.eola document line_trailing_space
+line-trailing-space-name-only.eola document line_trailing_space
+line-trailing-space-only.eola document line_trailing_space
+type-line-magic-lowercase.eola document type_line_magic
+type-line-magic-no-digit.eola document type_line_magic
+type-line-magic-field-first.eola document type_line_magic
+type-line-magic-short.eola document type_line_magic
+type-line-magic-leading-space.eola document type_line_magic
+type-line-version-2.eola document type_line_version
+type-line-version-0.eola document type_line_version
+type-line-version-10.eola document type_line_version
+type-line-version-01.eola document type_line_version
+type-line-document-type-missing.eola document type_line_document_type
+type-line-document-type-no-space.eola document type_line_document_type
+type-line-document-type-two-spaces.eola document type_line_document_type
+type-line-document-type-uppercase.eola document type_line_document_type
+type-line-document-type-inner-uppercase.eola document type_line_document_type
+type-line-document-type-leading-digit.eola document type_line_document_type
+type-line-document-type-inner-space.eola document type_line_document_type
+type-line-document-type-hyphen.eola document type_line_document_type
+type-line-document-type-before-field-error.eola document type_line_document_type
+field-name-uppercase.eola document field_name
+field-name-inner-uppercase.eola document field_name
+field-name-leading-digit.eola document field_name
+field-name-leading-underscore.eola document field_name
+field-name-hyphen.eola document field_name
+field-name-empty.eola document field_name
+field-name-before-no-value.eola document field_name
+field-no-value.eola document field_no_value
+field-no-value-after-valid-field.eola document field_no_value
+field-separator-two-spaces.eola document field_separator
+field-separator-only-spaces.eola document field_separator

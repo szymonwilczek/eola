@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+#
+# The formatter of the C sources. Another clang-format release can format
+# the same code differently, so the version is pinned.
+#
+# Install with: pip install -r libeola/requirements.txt
+clang-format==22.1.8

@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Szymon Wilczek
+#
+# Formatting of the C sources: tabs of eight columns, 80 columns,
+# the opening brace of a function on its own line.
+BasedOnStyle: LLVM
+ColumnLimit: 80
+IndentWidth: 8
+ContinuationIndentWidth: 8
+TabWidth: 8
+UseTab: Always
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlignTrailingComments:
+  Kind: Never
+AlignEscapedNewlines: Left
+IndentCaseLabels: false
+PointerAlignment: Right
+ReflowComments: false
+SortIncludes: Never
