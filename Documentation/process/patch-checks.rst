@@ -76,6 +76,18 @@ file trailing blank lines
    attribute is unset in ``.gitattributes``, such as the test vectors, are
    skipped here and by ``git diff --check``.
 
+C formatting
+   Every changed ``.c`` and ``.h`` file is unchanged by ``clang-format`` with
+   the repository ``.clang-format``. The result depends on the clang-format
+   release, so the check is meant for the version of
+   ``libeola/requirements.txt``; ``CLANG_FORMAT`` names another binary.
+   Skipped when ``clang-format`` is missing.
+
+Go formatting
+   Every changed ``.go`` file is unchanged by ``gofmt``. golangci-lint in the
+   continuous integration also applies gofumpt and goimports. Skipped when
+   ``gofmt`` is missing.
+
 documentation build
    When a reStructuredText file or a file under ``Documentation/`` changes,
    ``make -C Documentation html`` builds without warnings. Skipped when

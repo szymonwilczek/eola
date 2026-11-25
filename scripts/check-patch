@@ -41,6 +41,8 @@ Checks:
   - trailing whitespace in patches and commit messages, and trailing blank
     lines in changed files, except files with the whitespace attribute
     unset in .gitattributes,
+  - clang-format on changed C sources and gofmt on changed Go sources
+    (skipped if the tool is missing),
   - a strict documentation build and sphinx-lint when a reStructuredText
     file or Documentation/ changes (skipped if the tools are missing).
 
@@ -477,6 +479,73 @@ check_file_endings() {
     fi
 }
 
+# Prints the paths among the arguments that end with one of the suffixes
+# given in the first argument, separated by spaces.
+paths_with_suffix() {
+    local suffixes=$1
+    local path suffix
+    shift
+
+    for path in "$@"; do
+        for suffix in $suffixes; do
+            if [[ $path == *"$suffix" && -f $path ]]; then
+                printf '%s\n' "$path"
+                break
+            fi
+        done
+    done
+}
+
+check_c_formatting() {
+    local output_file
+    local -a sources
+
+    mapfile -t sources < <(paths_with_suffix ".c .h" "$@")
+    if ((${#sources[@]} == 0)); then
+        skip "C formatting" "no C source changed."
+        return
+    fi
+    if ! command -v "${CLANG_FORMAT:-clang-format}" >/dev/null 2>&1; then
+        skip "C formatting" "clang-format is missing; pip install -r libeola/requirements.txt."
+        return
+    fi
+
+    output_file=$(mktemp)
+    if "${CLANG_FORMAT:-clang-format}" --dry-run --Werror "${sources[@]}" >"$output_file" 2>&1; then
+        pass "C formatting"
+    else
+        grep -E '^[^ ].*: (error|warning):' "$output_file" | sed 's/^/  /'
+        fail "C formatting" \
+             "run make -C libeola format with the clang-format of libeola/requirements.txt."
+    fi
+    rm -f "$output_file"
+}
+
+check_go_formatting() {
+    local unformatted
+    local -a sources
+
+    mapfile -t sources < <(paths_with_suffix ".go" "$@")
+    if ((${#sources[@]} == 0)); then
+        skip "Go formatting" "no Go source changed."
+        return
+    fi
+    if ! command -v gofmt >/dev/null 2>&1; then
+        skip "Go formatting" "gofmt is missing; install Go."
+        return
+    fi
+
+    if ! unformatted=$(gofmt -l "${sources[@]}" 2>&1); then
+        printf '%s\n' "$unformatted" | sed 's/^/  /'
+        fail "Go formatting" "fix the reported Go sources so that gofmt accepts them."
+    elif [[ -n $unformatted ]]; then
+        printf '%s\n' "$unformatted" | sed 's/^/  /'
+        fail "Go formatting" "run gofmt -w on the reported files."
+    else
+        pass "Go formatting"
+    fi
+}
+
 touches_documentation() {
     local path
 
@@ -590,6 +659,8 @@ main() {
     check_pull_request_title
     check_patch_whitespace "${commits[@]}"
     check_file_endings "${changed_files[@]}"
+    check_c_formatting "${changed_files[@]}"
+    check_go_formatting "${changed_files[@]}"
     check_documentation "${changed_files[@]}"
 
     if ((failure_count != 0)); then
