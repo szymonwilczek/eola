@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 /* Copyright (C) 2026 Szymon Wilczek */
 /*
- * Framing of EOLA documents, as specified in
+ * Framing and signature of EOLA documents, as specified in
  * draft-wilczek-eola-signed-document. A parsed document points into
- * the buffer of the caller; nothing is allocated or copied.
+ * the buffer of the caller; the parser allocates and copies nothing.
  */
 #ifndef EOLA_DOCUMENT_H
 #define EOLA_DOCUMENT_H
@@ -18,6 +18,12 @@
 
 /* Largest line, in octets, its LF included. */
 #define EOLA_LINE_MAX_LENGTH 8192
+
+/* An Ed25519 public key, in octets. */
+#define EOLA_PUBLIC_KEY_LENGTH 32
+
+/* An Ed25519 signature, in octets. */
+#define EOLA_SIGNATURE_LENGTH 64
 
 /**
  * struct eola_document - a document that passed the processing rules
@@ -85,5 +91,31 @@ enum eola_status eola_document_parse(const char *text, size_t text_length,
  */
 bool eola_document_next_field(const struct eola_document *document,
 			      size_t *cursor, struct eola_field *field);
+
+/**
+ * eola_document_verify() - verify a signed document
+ * @text: the octets of the document
+ * @text_length: the number of octets at @text
+ * @expected_type: the document type the caller expects, terminated by NUL
+ * @expected_signer: the public key the caller expects the document to be
+ *	signed with, EOLA_PUBLIC_KEY_LENGTH octets
+ * @document: receives the verified document on success
+ *
+ * Applies processing rules 1 to 12 and the signature processing rules 17
+ * to 24 of draft-wilczek-eola-signed-document in their order, and stops at
+ * the first rule @text breaks. @document is written only on success; its
+ * last two fields are signer and signature. @text can be NULL when
+ * @text_length is 0. The verification calls OpenSSL, which allocates.
+ *
+ * Return: EOLA_STATUS_OK, the error code of the first rule @text breaks,
+ * EOLA_STATUS_CRYPTO_FAILURE when OpenSSL fails for a reason other than
+ * the document, or EOLA_STATUS_INVALID_ARGUMENT when @expected_type,
+ * @expected_signer or @document is NULL, or @text is NULL with a nonzero
+ * @text_length.
+ */
+enum eola_status eola_document_verify(const char *text, size_t text_length,
+				      const char *expected_type,
+				      const unsigned char *expected_signer,
+				      struct eola_document *document);
 
 #endif /* EOLA_DOCUMENT_H */

@@ -5,13 +5,16 @@
  * line "<file> <check> <result>"; the test reports every vector whose
  * result differs. Every valid document is rebuilt from its parsed type and
  * fields, and every valid value is encoded again from what it decodes to,
- * to check that decoding loses no octet.
+ * to check that decoding loses no octet. A verified document is rebuilt
+ * too, its signer and signature fields included.
  *
  * Usage: vectors <directory of vectors.txt>
  */
 #include <eola/document.h>
 #include <eola/status.h>
 #include <eola/value.h>
+
+#include <openssl/crypto.h>
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -24,6 +27,7 @@
 #define PATH_MAX_LENGTH 4096
 #define MANIFEST_LINE_MAX_LENGTH 512
 #define HEX_CHECK_PREFIX "hex:"
+#define VERIFY_CHECK_PREFIX "verify:"
 #define DECIMAL_TEXT_MAX_LENGTH 21
 
 /*
@@ -168,6 +172,47 @@ static int run_document_vector(const char *name, const char *text,
 	return 0;
 }
 
+/*
+ * A check "verify:<type>:<key>": the key is the hexadecimal text of
+ * EOLA_PUBLIC_KEY_LENGTH octets, as a signer value writes it.
+ */
+static int run_verify_vector(const char *name, const char *check,
+			     const char *text, size_t text_length,
+			     const char *expected, char *rebuilt,
+			     size_t rebuilt_size)
+{
+	char expected_type[MANIFEST_LINE_MAX_LENGTH];
+	unsigned char signer[EOLA_PUBLIC_KEY_LENGTH];
+	struct eola_document document;
+	const char *arguments = check + strlen(VERIFY_CHECK_PREFIX);
+	const char *separator = strrchr(arguments, ':');
+	enum eola_status status;
+	size_t type_length;
+
+	if (separator == NULL ||
+	    eola_hex_value_decode(separator + 1, strlen(separator + 1), signer,
+				  sizeof(signer)) != EOLA_STATUS_OK) {
+		printf("FAIL %s: malformed check %s\n", name, check);
+		return -1;
+	}
+	type_length = (size_t)(separator - arguments);
+	memcpy(expected_type, arguments, type_length);
+	expected_type[type_length] = '\0';
+
+	status = eola_document_verify(text, text_length, expected_type, signer,
+				      &document);
+	if (result_differs(name, status, expected))
+		return -1;
+	if (status == EOLA_STATUS_OK &&
+	    !document_round_trips(&document, rebuilt, rebuilt_size)) {
+		printf("FAIL %s: the verified fields do not rebuild the "
+		       "document\n",
+		       name);
+		return -1;
+	}
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	static char text[VECTOR_MAX_LENGTH];
@@ -223,6 +268,12 @@ int main(int argc, char **argv)
 					   octets_length, expected,
 					   (unsigned char *)rebuilt) != 0)
 				failure_count++;
+		} else if (strncmp(check, VERIFY_CHECK_PREFIX,
+				   strlen(VERIFY_CHECK_PREFIX)) == 0) {
+			if (run_verify_vector(name, check, text, text_length,
+					      expected, rebuilt,
+					      sizeof(rebuilt)) != 0)
+				failure_count++;
 		} else if (strcmp(check, "decimal") == 0) {
 			if (run_decimal_vector(name, text, text_length,
 					       expected) != 0)
@@ -233,6 +284,11 @@ int main(int argc, char **argv)
 		}
 	}
 	fclose(manifest);
+	/*
+	 * Free the state OpenSSL keeps for the process, so that valgrind
+	 * reports any block the verification leaves as a leak.
+	 */
+	OPENSSL_cleanup();
 
 	printf("%u vectors, %u failed\n", vector_count, failure_count);
 	return failure_count == 0 && vector_count > 0 ? 0 : 1;

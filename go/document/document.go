@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Szymon Wilczek
 
-// Package document parses the framing of EOLA documents,
+// Package document parses, verifies and signs EOLA documents,
 // as specified in draft-wilczek-eola-signed-document.
+// Verify is the function a receiver calls; Parse checks the framing alone.
 package document
 
 import (
